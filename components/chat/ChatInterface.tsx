@@ -36,6 +36,7 @@ export function ChatInterface({ profile, initialMessages }: Props) {
   );
   const [input, setInput] = useState("");
   const [interimText, setInterimText] = useState("");
+  const [showInput, setShowInput] = useState(false);
   const [showTour, setShowTour] = useState(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("youly_tour_done") !== "1";
@@ -272,76 +273,103 @@ export function ChatInterface({ profile, initialMessages }: Props) {
         </div>
 
         {/* Input area */}
-        <div className="bg-white border-t border-gray-100 px-4 pt-3 pb-5">
+        <div className="bg-white border-t border-gray-100 px-4 pt-2 pb-4">
           {/* Listening indicator */}
           {isListening && (
-            <div className="flex items-center justify-center gap-2 mb-3">
-              <span className="text-base text-red-500 font-medium animate-pulse">
-                Listening…
-              </span>
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <span className="text-sm text-red-500 font-medium animate-pulse">Listening…</span>
               {interimText && (
-                <span className="text-base text-gray-500 italic truncate max-w-[200px]">
+                <span className="text-sm text-gray-400 italic truncate max-w-[200px]">
                   &ldquo;{interimText}&rdquo;
                 </span>
               )}
             </div>
           )}
 
-          {/* Text input */}
-          <form onSubmit={handleSubmit} className="mb-3">
-            <div className="flex gap-2 items-end max-w-3xl mx-auto">
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Or type here…"
-                rows={1}
-                className="flex-1 resize-none rounded-2xl border border-gray-200 px-4 py-3 text-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent max-h-36 overflow-y-auto"
-                style={{ minHeight: "52px" }}
-                onInput={(e) => {
-                  const el = e.currentTarget;
-                  el.style.height = "auto";
-                  el.style.height = Math.min(el.scrollHeight, 144) + "px";
-                }}
-              />
-              {input.trim() && (
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="shrink-0 w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center disabled:opacity-40 hover:bg-emerald-600 transition-colors"
-                >
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          </form>
+          {/* Collapsible text input */}
+          {showInput && (
+            <form onSubmit={(e) => { handleSubmit(e); setShowInput(false); }} className="mb-2">
+              <div className="flex gap-2 items-end max-w-3xl mx-auto">
+                <textarea
+                  ref={inputRef}
+                  autoFocus
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); setShowInput(false); } }}
+                  placeholder="Type here…"
+                  rows={1}
+                  className="flex-1 resize-none rounded-2xl border border-gray-200 px-4 py-3 text-base text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent max-h-32 overflow-y-auto"
+                  style={{ minHeight: "48px" }}
+                  onInput={(e) => {
+                    const el = e.currentTarget;
+                    el.style.height = "auto";
+                    el.style.height = Math.min(el.scrollHeight, 128) + "px";
+                  }}
+                />
+                {input.trim() ? (
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="shrink-0 w-11 h-11 rounded-2xl bg-emerald-500 text-white flex items-center justify-center disabled:opacity-40"
+                  >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                    </svg>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowInput(false)}
+                    className="shrink-0 w-11 h-11 rounded-2xl bg-gray-100 text-gray-400 flex items-center justify-center"
+                  >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </form>
+          )}
 
-          {/* Mic button — primary CTA */}
-          <div className="flex justify-center">
+          {/* Mic + keyboard toggle row */}
+          <div className="flex items-center justify-center gap-6">
+            {/* Keyboard toggle */}
+            <button
+              onClick={() => { setShowInput((v) => !v); }}
+              disabled={isLoading}
+              aria-label="Type a message"
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${showInput ? "bg-emerald-100 text-emerald-600" : "bg-gray-100 text-gray-400 hover:bg-gray-200"}`}
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 5H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 5H5v-2h2v2zm10 0H7v-2h10v2zm0-3h-2v-2h2v2zm0-3h-2V8h2v2zm3 6h-2v-2h2v2z"/>
+              </svg>
+            </button>
+
+            {/* Mic button — 20% smaller: w-16 h-16 instead of w-20 h-20 */}
             <button
               onClick={toggle}
               disabled={isLoading}
               aria-label={isListening ? "Stop listening" : "Start voice input"}
-              className={`relative w-20 h-20 rounded-full flex items-center justify-center transition-all duration-200 disabled:opacity-40 shadow-lg active:scale-95
+              className={`relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200 disabled:opacity-40 shadow-lg active:scale-95
                 ${isListening ? "bg-red-500 hover:bg-red-600" : "bg-emerald-500 hover:bg-emerald-600"}`}
             >
               {isListening && (
                 <span className="absolute inset-0 rounded-full bg-red-400 animate-ping opacity-40" />
               )}
               {isListening ? (
-                <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+                <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
                   <rect x="6" y="6" width="12" height="12" rx="2" />
                 </svg>
               ) : (
-                <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+                <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
                   <path d="M19 10v2a7 7 0 0 1-14 0v-2H3v2a9 9 0 0 0 8 8.94V23h2v-2.06A9 9 0 0 0 21 12v-2h-2z" />
                 </svg>
               )}
             </button>
+
+            {/* Spacer to balance the keyboard icon */}
+            <div className="w-11" />
           </div>
         </div>
       </main>
