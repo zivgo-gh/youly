@@ -73,6 +73,18 @@ export default function IntroPage() {
           >
             Get started →
           </button>
+          <button
+            onClick={async () => {
+              localStorage.clear();
+              const { createSupabaseBrowserClient } = await import("@/lib/supabase-browser");
+              const supabase = createSupabaseBrowserClient();
+              await supabase.auth.signOut();
+              window.location.reload();
+            }}
+            className="w-full mt-3 text-xs text-gray-300 text-center py-2"
+          >
+            Reset all data
+          </button>
         </div>
       </div>
     </div>
