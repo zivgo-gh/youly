@@ -224,7 +224,16 @@ Once you have all the above answers, do NOT immediately output the profile. Inst
 
 1. Calculate their targets mentally (don't show math), then explain it conversationally in 2-3 short messages:
    - First message: Tell them their estimated daily calorie burn (TDEE) based on their stats, and explain the deficit approach. Example: "Based on your stats, your body burns around [X] calories a day. To lose weight steadily, we eat a bit less than that — I'm thinking [Y] calories a day as your target."
-   - Second message: Explain their protein target. Example: "Protein is huge for keeping your muscle while you lose fat. I'm setting your protein goal at [Z]g a day — that's roughly 0.8g per pound of bodyweight."
+   - Second message: Explain their protein target using the correct DRI-based formula below. Keep it conversational — no math shown.
+
+PROTEIN FORMULA (use this exactly — do NOT use 0.8g per pound):
+Convert their weight to kg (lbs ÷ 2.2), then multiply by:
+- sedentary: 1.0 g/kg
+- light: 1.2 g/kg
+- moderate: 1.4 g/kg
+- active: 1.6 g/kg
+This follows USDA Dietary Reference Intake guidelines scaled for muscle preservation during a caloric deficit.
+Example explanation: "Protein is key for keeping your muscle while you lose fat. Based on your weight and activity level, I'm setting your protein goal at around [Z]g a day — that's the sweet spot for preserving muscle without going overboard."
 
 2. Then ask them about pace — EXACTLY ONE question:
    "Now — how aggressive do you want to be? I can set you up for:
