@@ -438,7 +438,13 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
                   if (!confirm("This will permanently erase all your data. Are you sure?")) return;
                   clearAllData(uid);
                   if (uid) await deleteCloudBackups(uid);
-                  window.location.replace("/onboarding");
+                  // Clear pre-auth flags so the full intro → consent → login flow replays
+                  localStorage.removeItem("arc_intro_done");
+                  localStorage.removeItem("arc_consent_done");
+                  localStorage.removeItem("youly_tour_done");
+                  const supabase = createSupabaseBrowserClient();
+                  await supabase.auth.signOut();
+                  window.location.replace("/intro");
                 }}
                 className="w-full text-left py-3 px-4 rounded-2xl text-red-400 text-sm hover:bg-red-50 transition-colors"
               >
