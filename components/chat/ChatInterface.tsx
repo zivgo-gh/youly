@@ -20,6 +20,7 @@ import {
 } from "@/lib/storage";
 import { v4 as uuid } from "uuid";
 import { AVATARS } from "@/lib/types";
+import { CoachPhoto } from "@/components/shared/CoachPhoto";
 
 interface Props {
   profile: UserProfile;
@@ -143,9 +144,12 @@ export function ChatInterface({ profile, initialMessages }: Props) {
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar — desktop only */}
       <aside className="hidden md:flex flex-col w-72 bg-white border-r border-gray-100 overflow-y-auto">
-        <div className="p-4 border-b border-gray-100">
-          <span className="text-xl font-bold text-emerald-600">Youly</span>
-          <span className="ml-2 text-base text-gray-400">with {avatar.name}</span>
+        <div className="p-4 border-b border-gray-100 flex items-center gap-3">
+          <CoachPhoto avatar={profile.coachAvatar} size={36} />
+          <div>
+            <p className="text-base font-bold text-emerald-600">Youly</p>
+            <p className="text-xs text-gray-400">with {avatar.name}</p>
+          </div>
         </div>
         <MacroSidebar profile={profile} todayLog={todayLog} trajectory={trajectory} />
         <div className="mt-auto p-4 border-t border-gray-100">
@@ -222,8 +226,8 @@ export function ChatInterface({ profile, initialMessages }: Props) {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
           {messages.length === 0 && !streamingText && (
-            <div className="text-center text-gray-400 mt-16">
-              <div className="text-5xl mb-3">{avatar.emoji}</div>
+            <div className="text-center text-gray-400 mt-16 flex flex-col items-center gap-3">
+              <CoachPhoto avatar={profile.coachAvatar} size={72} />
               <p className="text-lg">{avatar.name} is ready.<br />Tap the mic and start talking.</p>
             </div>
           )}
@@ -242,9 +246,7 @@ export function ChatInterface({ profile, initialMessages }: Props) {
 
           {isLoading && !streamingText && (
             <div className="flex gap-3">
-              <div className="shrink-0 w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-lg">
-                {avatar.emoji}
-              </div>
+              <CoachPhoto avatar={profile.coachAvatar} size={36} className="mt-0.5" />
               <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-sm shadow-sm px-4 py-3">
                 <div className="flex gap-1.5 items-center h-5">
                   <span className="w-2 h-2 rounded-full bg-gray-300 animate-bounce [animation-delay:0ms]" />

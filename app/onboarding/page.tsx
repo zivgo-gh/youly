@@ -6,6 +6,7 @@ import { useStreamingChat } from "@/hooks/useStreamingChat";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { MessageBubble } from "@/components/chat/MessageBubble";
 import { AVATARS } from "@/lib/types";
+import { CoachPhoto } from "@/components/shared/CoachPhoto";
 import type { UserProfile, CoachAvatar } from "@/lib/types";
 import { saveProfile } from "@/lib/storage";
 import { calcTargets, predictGoalDate } from "@/lib/calories";
@@ -144,10 +145,10 @@ export default function OnboardingPage() {
                 <button
                   key={key}
                   onClick={() => setSelectedAvatar(key)}
-                  className="flex flex-col items-center text-center bg-white rounded-2xl border-2 border-gray-100 p-6 gap-3 hover:border-emerald-400 hover:shadow-md active:scale-95 transition-all duration-150"
+                  className="flex flex-col items-center text-center bg-white rounded-2xl border-2 border-gray-100 p-5 gap-3 hover:border-emerald-400 hover:shadow-md active:scale-95 transition-all duration-150"
                 >
-                  <span className="text-5xl">{avatar.emoji}</span>
-                  <p className="text-lg font-bold text-gray-800">{avatar.name}</p>
+                  <CoachPhoto avatar={key} size={80} />
+                  <p className="text-base font-bold text-gray-800">{avatar.name}</p>
                 </button>
               )
             )}
@@ -164,9 +165,7 @@ export default function OnboardingPage() {
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-white flex flex-col">
       <header className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-white/80">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-lg">
-            {avatar.emoji}
-          </div>
+          <CoachPhoto avatar={selectedAvatar} size={38} />
           <div>
             <p className="text-base font-bold text-gray-800 leading-none">{avatar.name}</p>
             <p className="text-sm text-gray-400">{avatar.tagline}</p>
