@@ -160,7 +160,15 @@ export function ChatInterface({ profile, initialMessages }: Props) {
         {/* Mobile header */}
         <header className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100">
           <span className="text-lg font-bold text-emerald-600">Youly</span>
-          <a href="/progress" className="text-sm text-emerald-600">Progress →</a>
+          <div className="flex items-center gap-4">
+            <a href="/progress" className="text-sm text-emerald-600">Progress →</a>
+            <button
+              onClick={() => { if (confirm("Reset and start over?")) { localStorage.clear(); window.location.replace("/onboarding"); } }}
+              className="text-xs text-gray-300 hover:text-red-400 transition-colors"
+            >
+              Reset
+            </button>
+          </div>
         </header>
 
         {/* Mobile macro strip */}

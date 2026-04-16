@@ -120,8 +120,14 @@ export default function OnboardingPage() {
   if (!selectedAvatar) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-white flex flex-col">
-        <header className="px-6 py-5">
+        <header className="px-6 py-5 flex items-center justify-between">
           <span className="text-2xl font-bold text-emerald-600">Youly</span>
+          <button
+            onClick={() => { if (confirm("Reset and start over?")) { localStorage.clear(); window.location.reload(); } }}
+            className="text-xs text-gray-300 hover:text-red-400 transition-colors"
+          >
+            Reset
+          </button>
         </header>
 
         <div className="flex-1 flex flex-col justify-center px-6 pb-10">
@@ -156,14 +162,22 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-white flex flex-col">
-      <header className="flex items-center gap-3 px-5 py-4 border-b border-gray-100 bg-white/80">
-        <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-lg">
-          {avatar.emoji}
+      <header className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-white/80">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-lg">
+            {avatar.emoji}
+          </div>
+          <div>
+            <p className="text-base font-bold text-gray-800 leading-none">{avatar.name}</p>
+            <p className="text-sm text-gray-400">{avatar.tagline}</p>
+          </div>
         </div>
-        <div>
-          <p className="text-base font-bold text-gray-800 leading-none">{avatar.name}</p>
-          <p className="text-sm text-gray-400">{avatar.tagline}</p>
-        </div>
+        <button
+          onClick={() => { if (confirm("Reset and start over?")) { localStorage.clear(); window.location.reload(); } }}
+          className="text-xs text-gray-300 hover:text-red-400 transition-colors"
+        >
+          Reset
+        </button>
       </header>
 
       {/* Messages */}
