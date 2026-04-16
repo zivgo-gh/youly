@@ -192,34 +192,35 @@ export default function OnboardingPage() {
   // ── Avatar picker ──────────────────────────────────────────────────────────
   if (!selectedAvatar) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-white flex flex-col">
-        <header className="px-6 py-5 flex items-center justify-between">
-          <span className="text-2xl font-bold text-emerald-600">Youly</span>
+      <div className="h-screen flex flex-col bg-emerald-700 text-white overflow-hidden">
+        {/* Green header */}
+        <div className="px-6 pt-10 pb-6 shrink-0 flex items-start justify-between">
+          <div>
+            <p className="text-4xl font-black tracking-tight text-emerald-300 uppercase mb-3">Youly</p>
+            <h1 className="text-[1.6rem] font-bold leading-snug text-white">
+              Who do you want<br />to work with?
+            </h1>
+            <p className="text-emerald-200 text-sm mt-1">Same great coaching — just pick whoever you vibe with.</p>
+          </div>
           <button
             onClick={() => { if (confirm("Reset and start over?")) { localStorage.clear(); window.location.reload(); } }}
-            className="text-xs text-gray-300 hover:text-red-400 transition-colors"
+            className="text-xs text-emerald-400 hover:text-red-300 transition-colors mt-1 shrink-0"
           >
             Reset
           </button>
-        </header>
+        </div>
 
-        <div className="flex-1 flex flex-col justify-center px-6 pb-10">
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">
-            Who do you want to work with?
-          </h1>
-          <p className="text-base text-gray-500 mb-8">
-            Same great coaching — just pick whoever you vibe with.
-          </p>
-
+        {/* White card with avatar grid */}
+        <div className="flex-1 bg-white rounded-t-3xl px-6 pt-8 pb-10 overflow-y-auto">
           <div className="grid grid-cols-2 gap-4">
             {(Object.entries(AVATARS) as [CoachAvatar, typeof AVATARS[CoachAvatar]][]).map(
               ([key, avatar]) => (
                 <button
                   key={key}
                   onClick={() => setSelectedAvatar(key)}
-                  className="flex flex-col items-center text-center bg-white rounded-2xl border-2 border-gray-100 p-5 gap-3 hover:border-emerald-400 hover:shadow-md active:scale-95 transition-all duration-150"
+                  className="flex flex-col items-center text-center bg-gray-50 rounded-2xl border-2 border-transparent p-5 gap-3 hover:border-emerald-400 hover:bg-emerald-50 active:scale-95 transition-all duration-150"
                 >
-                  <CoachPhoto avatar={key} size={80} />
+                  <CoachPhoto avatar={key} size={84} />
                   <p className="text-base font-bold text-gray-800">{avatar.name}</p>
                 </button>
               )

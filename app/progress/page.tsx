@@ -116,7 +116,7 @@ export default function ProgressPage() {
         <a href="/chat" className="text-emerald-600 hover:underline text-sm">
           ← Back to chat
         </a>
-        <span className="text-lg font-bold text-emerald-600">Youly</span>
+        <span className="text-lg font-black tracking-tight uppercase text-emerald-600">Youly</span>
         <span className="text-gray-400 text-sm">Progress</span>
       </header>
 

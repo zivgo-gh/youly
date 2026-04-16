@@ -152,7 +152,7 @@ export function ChatInterface({ profile, initialMessages }: Props) {
         <div className="p-4 border-b border-gray-100 flex items-center gap-3">
           <CoachPhoto avatar={profile.coachAvatar} size={36} />
           <div>
-            <p className="text-base font-bold text-emerald-600">Youly</p>
+            <p className="text-base font-black tracking-tight uppercase text-emerald-600">Youly</p>
             <p className="text-xs text-gray-400">with {avatar.name}</p>
           </div>
         </div>
@@ -168,7 +168,7 @@ export function ChatInterface({ profile, initialMessages }: Props) {
       <main className="flex-1 flex flex-col min-w-0">
         {/* Mobile header */}
         <header className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100">
-          <span className="text-lg font-bold text-emerald-600">Youly</span>
+          <span className="text-lg font-black tracking-tight uppercase text-emerald-600">Youly</span>
           <div className="flex items-center gap-4">
             <a href="/progress" className="text-sm text-emerald-600">Progress →</a>
             <button
