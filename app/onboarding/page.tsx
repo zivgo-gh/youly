@@ -124,9 +124,9 @@ export default function OnboardingPage() {
       <div className="h-screen flex flex-col bg-emerald-700 text-white overflow-hidden">
         {/* Compact green header */}
         <div className="px-6 pt-10 pb-5 shrink-0">
-          <p className="text-4xl font-black tracking-tight text-white uppercase mb-3">Youly</p>
+          <p className="text-4xl font-black tracking-tight text-emerald-300 uppercase mb-3">Youly</p>
           <h1 className="text-[1.6rem] font-bold leading-snug text-white">
-            The coach that fits<br />your life.
+            Personalized weight loss,<br />without the complexity.
           </h1>
           <p className="text-emerald-200 text-sm mt-2">
             Just talk. Your coach handles the rest.
