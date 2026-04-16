@@ -33,7 +33,12 @@ export default function OnboardingPage() {
     if (!confirm("Reset and start over?")) return;
     clearAllData(uid);
     if (uid) await deleteCloudBackups(uid);
-    window.location.reload();
+    localStorage.removeItem("arc_intro_done");
+    localStorage.removeItem("arc_consent_done");
+    localStorage.removeItem("youly_tour_done");
+    const supabase = createSupabaseBrowserClient();
+    await supabase.auth.signOut();
+    window.location.replace("/intro");
   };
 
   const handleProfileComplete = useCallback(
