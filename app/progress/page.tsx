@@ -15,6 +15,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { getProfile, getAllLogs } from "@/lib/storage";
+import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { aggregateLast, computeTrajectory, weeklyStats, generateMilestones } from "@/lib/calories";
 import type { UserProfile, DailyLogs, Milestone } from "@/lib/types";
 import type { Trajectory } from "@/lib/calories";
@@ -30,18 +31,25 @@ export default function ProgressPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const p = getProfile();
-    if (!p || !p.onboardingComplete) {
-      router.replace("/onboarding");
-      return;
+    async function init() {
+      const supabase = createSupabaseBrowserClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      const uid = user?.id;
+
+      const p = getProfile(uid);
+      if (!p || !p.onboardingComplete) {
+        router.replace("/onboarding");
+        return;
+      }
+      const allLogs = getAllLogs(uid);
+      setProfile(p);
+      setLogs(allLogs);
+      setTrajectory(computeTrajectory(allLogs, p));
+      const weeklyLossLbs = (p.dailyDeficit ?? 500) / 500;
+      setMilestones(generateMilestones(p.currentWeightLbs, p.goalWeightLbs, weeklyLossLbs));
+      setLoading(false);
     }
-    const allLogs = getAllLogs();
-    setProfile(p);
-    setLogs(allLogs);
-    setTrajectory(computeTrajectory(allLogs, p));
-    const weeklyLossLbs = (p.dailyDeficit ?? 500) / 500;
-    setMilestones(generateMilestones(p.currentWeightLbs, p.goalWeightLbs, weeklyLossLbs));
-    setLoading(false);
+    init();
   }, [router]);
 
   const agg30 = profile && logs ? aggregateLast(logs, 30) : [];
@@ -382,20 +390,7 @@ export default function ProgressPage() {
           )}
         </section>
 
-        {/* Reset */}
-        <div className="pb-4 text-center">
-          <button
-            onClick={() => {
-              if (confirm("This will erase all your data and restart onboarding. Are you sure?")) {
-                localStorage.clear();
-                window.location.replace("/onboarding");
-              }
-            }}
-            className="text-xs text-gray-300 hover:text-red-400 transition-colors"
-          >
-            Reset app & start over
-          </button>
-        </div>
+        <div className="pb-4" />
       </div>
     </div>
   );

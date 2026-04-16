@@ -8,8 +8,9 @@ import { MessageBubble } from "@/components/chat/MessageBubble";
 import { AVATARS } from "@/lib/types";
 import { CoachPhoto } from "@/components/shared/CoachPhoto";
 import type { UserProfile, CoachAvatar } from "@/lib/types";
-import { saveProfile } from "@/lib/storage";
+import { saveProfile, clearAllData, deleteCloudBackups, syncProfileToCloud } from "@/lib/storage";
 import { calcTargets, predictGoalDate } from "@/lib/calories";
+import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -19,7 +20,22 @@ export default function OnboardingPage() {
   const [input, setInput] = useState("");
   const [interimText, setInterimText] = useState("");
   const [showInput, setShowInput] = useState(false);
+  const [uid, setUid] = useState<string | undefined>(undefined);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setUid(data.user.id);
+    });
+  }, []);
+
+  const handleReset = async () => {
+    if (!confirm("Reset and start over?")) return;
+    clearAllData(uid);
+    if (uid) await deleteCloudBackups(uid);
+    window.location.reload();
+  };
 
   const handleProfileComplete = useCallback(
     (profileJson: string) => {
@@ -57,13 +73,15 @@ export default function OnboardingPage() {
           createdAt: new Date().toISOString(),
         };
 
-        saveProfile(profile);
+        saveProfile(profile, uid);
+        // Background cloud sync — non-blocking
+        if (uid) syncProfileToCloud(uid, profile);
         setProfileReady(true);
       } catch (e) {
         console.error("Failed to parse profile", e);
       }
     },
-    [router]
+    [uid]
   );
 
   const { messages, streamingText, isLoading, sendMessage } = useStreamingChat({
@@ -205,7 +223,7 @@ export default function OnboardingPage() {
             <p className="text-emerald-200 text-sm mt-1">Same great coaching — just pick whoever you vibe with.</p>
           </div>
           <button
-            onClick={() => { if (confirm("Reset and start over?")) { localStorage.clear(); window.location.reload(); } }}
+            onClick={handleReset}
             className="text-xs text-emerald-400 hover:text-red-300 transition-colors mt-1 shrink-0"
           >
             Reset
@@ -247,7 +265,7 @@ export default function OnboardingPage() {
           </div>
         </div>
         <button
-          onClick={() => { if (confirm("Reset and start over?")) { localStorage.clear(); window.location.reload(); } }}
+          onClick={handleReset}
           className="text-xs text-gray-300 hover:text-red-400 transition-colors"
         >
           Reset

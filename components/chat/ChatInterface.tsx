@@ -18,7 +18,10 @@ import {
   logWeight,
   saveChatHistory,
   updateProfile,
+  clearAllData,
+  deleteCloudBackups,
 } from "@/lib/storage";
+import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { v4 as uuid } from "uuid";
 import { AVATARS } from "@/lib/types";
 import { CoachPhoto } from "@/components/shared/CoachPhoto";
@@ -26,13 +29,14 @@ import { CoachPhoto } from "@/components/shared/CoachPhoto";
 interface Props {
   profile: UserProfile;
   initialMessages: ChatMessage[];
+  uid?: string;
 }
 
-export function ChatInterface({ profile, initialMessages }: Props) {
-  const [logs, setLogs] = useState<DailyLogs>(() => getAllLogs());
-  const [todayLog, setTodayLog] = useState(() => getLog(todayStr()));
+export function ChatInterface({ profile, initialMessages, uid }: Props) {
+  const [logs, setLogs] = useState<DailyLogs>(() => getAllLogs(uid));
+  const [todayLog, setTodayLog] = useState(() => getLog(todayStr(), uid));
   const [trajectory, setTrajectory] = useState<Trajectory>(() =>
-    computeTrajectory(getAllLogs(), profile)
+    computeTrajectory(getAllLogs(uid), profile)
   );
   const [input, setInput] = useState("");
   const [interimText, setInterimText] = useState("");
@@ -41,16 +45,26 @@ export function ChatInterface({ profile, initialMessages }: Props) {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("youly_tour_done") !== "1";
   });
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [userEmail, setUserEmail] = useState<string>("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const avatar = AVATARS[profile.coachAvatar];
 
+  // Fetch user email for account menu
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user?.email) setUserEmail(data.user.email);
+    });
+  }, []);
+
   const refreshLog = useCallback(() => {
-    const allLogs = getAllLogs();
+    const allLogs = getAllLogs(uid);
     setLogs(allLogs);
-    setTodayLog(getLog(todayStr()));
+    setTodayLog(getLog(todayStr(), uid));
     setTrajectory(computeTrajectory(allLogs, profile));
-  }, [profile]);
+  }, [profile, uid]);
 
   const handleToolCall = useCallback(
     (name: string, input: Record<string, unknown>) => {
@@ -66,35 +80,35 @@ export function ChatInterface({ profile, initialMessages }: Props) {
           description: input.description as string,
           estimatedCalories: input.estimated_calories as number,
           estimatedProtein: input.estimated_protein as number,
-        });
+        }, uid);
         refreshLog();
       } else if (name === "correct_food_entry") {
         correctFoodEntry(input.date as string, input.entry_id as string, {
           description: input.updated_description as string | undefined,
           estimatedCalories: input.updated_calories as number | undefined,
           estimatedProtein: input.updated_protein as number | undefined,
-        });
+        }, uid);
         refreshLog();
       } else if (name === "delete_food_entry") {
-        deleteFoodEntry(input.date as string, input.entry_id as string);
+        deleteFoodEntry(input.date as string, input.entry_id as string, uid);
         refreshLog();
       } else if (name === "log_weight") {
-        logWeight((input.date as string) || today, input.weight_lbs as number);
+        logWeight((input.date as string) || today, input.weight_lbs as number, uid);
         refreshLog();
       } else if (name === "update_coach_style") {
         const field = input.field as string;
         const value = input.value;
         const current = profile.coachStyle;
         if (field === "observations" && typeof value === "string") {
-          updateProfile({ coachStyle: { ...current, observations: [...current.observations, value] } });
+          updateProfile({ coachStyle: { ...current, observations: [...current.observations, value] } }, uid);
         } else if (field === "supportLevel" || field === "techDepth") {
-          updateProfile({ coachStyle: { ...current, [field]: value as number } });
+          updateProfile({ coachStyle: { ...current, [field]: value as number } }, uid);
         } else if (field === "checkInStyle") {
-          updateProfile({ coachStyle: { ...current, checkInStyle: value as "brief" | "conversational" } });
+          updateProfile({ coachStyle: { ...current, checkInStyle: value as "brief" | "conversational" } }, uid);
         }
       }
     },
-    [profile, refreshLog]
+    [profile, refreshLog, uid]
   );
 
   const { messages, streamingText, isLoading, sendMessage, setMessages } =
@@ -102,7 +116,7 @@ export function ChatInterface({ profile, initialMessages }: Props) {
       endpoint: "/api/chat",
       getBody: (msgs) => ({ messages: msgs, profile, logs }),
       onToolCall: handleToolCall,
-      onDone: (finalMessages) => saveChatHistory(finalMessages),
+      onDone: (finalMessages) => saveChatHistory(finalMessages, uid),
     });
 
   const submitMessage = useCallback(
@@ -172,11 +186,13 @@ export function ChatInterface({ profile, initialMessages }: Props) {
           <span className="text-lg font-black tracking-tight uppercase text-emerald-600">Youly</span>
           <div className="flex items-center gap-4">
             <a href="/progress" className="text-sm text-emerald-600">Progress →</a>
+            {/* Account avatar */}
             <button
-              onClick={() => { if (confirm("Reset and start over?")) { localStorage.clear(); window.location.replace("/onboarding"); } }}
-              className="text-xs text-gray-300 hover:text-red-400 transition-colors"
+              onClick={() => setShowAccountMenu(true)}
+              className="w-8 h-8 rounded-full bg-emerald-500 text-white text-sm font-bold flex items-center justify-center"
+              aria-label="Account menu"
             >
-              Reset
+              {profile.name?.charAt(0).toUpperCase() ?? "?"}
             </button>
           </div>
         </header>
@@ -382,6 +398,55 @@ export function ChatInterface({ profile, initialMessages }: Props) {
             setShowTour(false);
           }}
         />
+      )}
+
+      {/* Account menu bottom drawer */}
+      {showAccountMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/40"
+            onClick={() => setShowAccountMenu(false)}
+          />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl pb-10">
+            {/* Handle */}
+            <div className="flex justify-center pt-3 pb-4">
+              <div className="w-10 h-1 rounded-full bg-gray-200" />
+            </div>
+
+            {/* User info */}
+            <div className="px-6 pb-4 border-b border-gray-100">
+              <p className="font-semibold text-gray-800">{profile.name}</p>
+              <p className="text-sm text-gray-400">{userEmail}</p>
+            </div>
+
+            {/* Actions */}
+            <div className="px-6 pt-4 space-y-1">
+              <button
+                onClick={async () => {
+                  setShowAccountMenu(false);
+                  const supabase = createSupabaseBrowserClient();
+                  await supabase.auth.signOut();
+                  window.location.replace("/login");
+                }}
+                className="w-full text-left py-3 px-4 rounded-2xl text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+              >
+                Sign out
+              </button>
+              <button
+                onClick={async () => {
+                  setShowAccountMenu(false);
+                  if (!confirm("This will permanently erase all your data. Are you sure?")) return;
+                  clearAllData(uid);
+                  if (uid) await deleteCloudBackups(uid);
+                  window.location.replace("/onboarding");
+                }}
+                className="w-full text-left py-3 px-4 rounded-2xl text-red-400 text-sm hover:bg-red-50 transition-colors"
+              >
+                Reset my data
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

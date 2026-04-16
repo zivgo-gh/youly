@@ -4,23 +4,33 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChatInterface } from "@/components/chat/ChatInterface";
 import { getProfile, getChatHistory } from "@/lib/storage";
+import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import type { UserProfile, ChatMessage } from "@/lib/types";
 
 export default function ChatPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [uid, setUid] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const p = getProfile();
-    if (!p || !p.onboardingComplete) {
-      router.replace("/onboarding");
-      return;
+    async function init() {
+      const supabase = createSupabaseBrowserClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
+      setUid(userId);
+
+      const p = getProfile(userId);
+      if (!p || !p.onboardingComplete) {
+        router.replace("/onboarding");
+        return;
+      }
+      setProfile(p);
+      setMessages(getChatHistory(userId));
+      setLoading(false);
     }
-    setProfile(p);
-    setMessages(getChatHistory());
-    setLoading(false);
+    init();
   }, [router]);
 
   if (loading || !profile) {
@@ -31,5 +41,5 @@ export default function ChatPage() {
     );
   }
 
-  return <ChatInterface profile={profile} initialMessages={messages} />;
+  return <ChatInterface profile={profile} initialMessages={messages} uid={uid} />;
 }

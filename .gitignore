@@ -23,6 +23,10 @@
 # misc
 .DS_Store
 *.pem
+client_secret*.json
+supabase-password.txt
+*password*.txt
+*secret*.txt
 
 # debug
 npm-debug.log*
