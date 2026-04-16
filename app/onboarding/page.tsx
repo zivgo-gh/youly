@@ -15,6 +15,7 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [introDone, setIntroDone] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState<CoachAvatar | null>(null);
+  const [profileReady, setProfileReady] = useState(false);
   const [input, setInput] = useState("");
   const [interimText, setInterimText] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -56,7 +57,7 @@ export default function OnboardingPage() {
         };
 
         saveProfile(profile);
-        setTimeout(() => router.push("/chat"), 1500);
+        setProfileReady(true);
       } catch (e) {
         console.error("Failed to parse profile", e);
       }
@@ -284,8 +285,20 @@ export default function OnboardingPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
+      {/* Input — or CTA when profile is ready */}
       <div className="border-t border-gray-100 bg-white px-4 pt-3 pb-6">
+        {profileReady ? (
+          <div className="flex flex-col items-center gap-3 py-2">
+            <p className="text-sm text-gray-400">Your profile is all set!</p>
+            <button
+              onClick={() => router.push("/chat")}
+              className="w-full max-w-sm py-4 rounded-2xl bg-emerald-500 text-white font-bold text-lg shadow-lg active:scale-95 transition-transform"
+            >
+              I&apos;m ready — let&apos;s go! →
+            </button>
+          </div>
+        ) : (
+        <>
         {isListening && (
           <div className="flex items-center justify-center gap-2 mb-3">
             <span className="text-base text-red-500 font-medium animate-pulse">Listening…</span>
@@ -350,6 +363,8 @@ export default function OnboardingPage() {
             )}
           </button>
         </div>
+        </>
+        )}
       </div>
     </div>
   );
