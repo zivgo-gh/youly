@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   const prompt = `Generate a weekly summary for ${profile.name}'s weight loss journey. Be warm, specific, and actionable.
 
 USER PROFILE:
-- Goal: ${profile.currentWeightKg}kg → ${profile.goalWeightKg}kg
+- Goal: ${profile.currentWeightLbs} lbs → ${profile.goalWeightLbs} lbs
 - Daily targets: ${profile.dailyCalorieTarget}kcal, ${profile.dailyProteinTarget}g protein
 - Predicted goal date: ${profile.predictedGoalDate}
 
@@ -33,7 +33,7 @@ THIS WEEK'S DATA:
 - Days logged: ${stats.daysLogged}/7
 - Avg calories: ${stats.avgCalories}kcal (target: ${profile.dailyCalorieTarget})
 - Avg protein: ${stats.avgProtein}g (target: ${profile.dailyProteinTarget}g)
-- Trajectory: ${trajectory.status}, projected weekly loss: ${trajectory.projectedWeeklyLossKg}kg/week
+- Trajectory: ${trajectory.status}, projected weekly loss: ${trajectory.projectedWeeklyLossLbs} lbs/week
 - Estimated goal date at current pace: ${trajectory.estimatedGoalDate ?? "insufficient data"}
 
 DAILY BREAKDOWN:

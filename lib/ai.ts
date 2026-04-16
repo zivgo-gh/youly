@@ -61,9 +61,9 @@ export const CHAT_TOOLS: Anthropic.Tool[] = [
       type: "object" as const,
       properties: {
         date: { type: "string", description: "Date in YYYY-MM-DD format" },
-        weight_kg: { type: "number", description: "Weight in kilograms" },
+        weight_lbs: { type: "number", description: "Weight in pounds (lbs)" },
       },
-      required: ["date", "weight_kg"],
+      required: ["date", "weight_lbs"],
     },
   },
   {
@@ -120,9 +120,11 @@ export function buildSystemPrompt(
     hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
 
   const weightHistory = agg14
-    .filter((d) => d.weightKg !== null)
-    .map((d) => `${d.date}: ${d.weightKg}kg`)
+    .filter((d) => d.weightLbs !== null)
+    .map((d) => `${d.date}: ${d.weightLbs} lbs`)
     .join(", ");
+
+  const weeklyLossLbs = (profile.dailyDeficit ?? 500) / 500;
 
   const coachStyleNote = `
 Coach style calibration (self-updated over time):
@@ -131,6 +133,10 @@ Coach style calibration (self-updated over time):
 - Check-in style: ${profile.coachStyle.checkInStyle}
 - Observations about this user: ${profile.coachStyle.observations.length > 0 ? profile.coachStyle.observations.join("; ") : "none yet"}
 `.trim();
+
+  // Format height from total inches
+  const feet = Math.floor(profile.heightIn / 12);
+  const inches = profile.heightIn % 12;
 
   return `You are ${avatar.name}, an expert AI weight loss coach inside the Youly app. You are a combination of:
 - A cutting-edge, evidence-based dietitian (up to date on the latest nutrition science)
@@ -149,9 +155,9 @@ ${coachStyleNote}
 USER PROFILE:
 - Name: ${profile.name}
 - Age: ${profile.age}, Sex: ${profile.sex}
-- Height: ${profile.heightCm}cm, Starting weight: ${profile.currentWeightKg}kg, Goal weight: ${profile.goalWeightKg}kg
+- Height: ${feet}'${inches}", Starting weight: ${profile.currentWeightLbs} lbs, Goal weight: ${profile.goalWeightLbs} lbs
 - Activity level: ${profile.activityLevel}
-- Daily calorie target: ${profile.dailyCalorieTarget} kcal
+- Daily calorie target: ${profile.dailyCalorieTarget} kcal (${profile.dailyDeficit ?? 500} cal/day deficit → ~${weeklyLossLbs} lb/week loss)
 - Daily protein target: ${profile.dailyProteinTarget}g
 - Fitness coaching: ${profile.interestedInFitness ? "yes, interested" : "not currently"}
 - Eating habits: ${profile.habits}
@@ -162,7 +168,7 @@ TODAY'S LOG (${today}, ${timeOfDay}):
 - Calories so far: ${todayLog.totalCalories} / ${profile.dailyCalorieTarget} kcal (${profile.dailyCalorieTarget - todayLog.totalCalories} remaining)
 - Protein so far: ${todayLog.totalProtein} / ${profile.dailyProteinTarget}g
 - Entries: ${todayLog.entries.length > 0 ? todayLog.entries.map((e) => `[${e.id}] ${e.description} (~${e.estimatedCalories}kcal, ${e.estimatedProtein}g protein)`).join("; ") : "nothing logged yet"}
-- Weight logged today: ${todayLog.weightKg ? `${todayLog.weightKg}kg` : "not logged"}
+- Weight logged today: ${todayLog.weightLbs ? `${todayLog.weightLbs} lbs` : "not logged"}
 
 LAST 7 DAYS SUMMARY:
 - Avg calories: ${stats7.avgCalories} kcal/day (${loggedDays14.length > 0 ? stats7.daysLogged : 0} of 7 days logged)
@@ -177,7 +183,8 @@ BEHAVIOR INSTRUCTIONS:
 - If the user has gone over calories, don't just report it — coach them through it.
 - If you notice a meaningful pattern in how the user communicates or responds, call update_coach_style.
 - You know it is currently: ${now.toLocaleString("en-US", { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "numeric" })}. Use this for context on check-ins and logging times.
-- For food logging, always use today's date unless the user clearly indicates otherwise.`;
+- For food logging, always use today's date unless the user clearly indicates otherwise.
+- Always use lbs (pounds) for weight. Never use kilograms.`;
 }
 
 // ─── Onboarding system prompt ─────────────────────────────────────────────────
@@ -193,6 +200,7 @@ TONE & FORMAT — critical rules:
 - 1-3 sentences max. No paragraphs, no lists.
 - Don't give advice yet — just get to know them.
 - Always refer to yourself as ${coachName}.
+- Always use lbs and feet/inches — never metric.
 
 OPENING MESSAGE (triggered when user sends "start"):
 Introduce yourself by name and ask for their name. Keep it natural and brief:
@@ -200,27 +208,46 @@ Introduce yourself by name and ask for their name. Keep it natural and brief:
 
 QUESTION ORDER — one at a time, in order:
 1. Their name
-2. What's their goal — what are they trying to achieve?
-3. Current weight and height (ask together, they're related)
-4. Age and biological sex (one question)
-5. How active are they day-to-day?
-6. What does a typical day of eating look like?
-7. What's been the hardest part — what keeps getting in the way?
-8. Workout tips too, or just nutrition for now?
+2. What's their goal — what are they trying to achieve and why now?
+3. Current weight (lbs) and height (feet and inches) — ask together
+4. Goal weight (lbs) — what's the target?
+5. Age and biological sex (one question)
+6. How active are they day-to-day?
+7. What does a typical day of eating look like?
+8. What's been the hardest part — what keeps getting in the way?
+9. Workout tips too, or just nutrition for now?
 
 After each answer: one sentence acknowledging what they said, then the next question.
 
-Once you have ALL of the above, send a warm closing line (still as ${coachName}), then output:
+TARGET EXPLANATION PHASE:
+Once you have all the above answers, do NOT immediately output the profile. Instead:
+
+1. Calculate their targets mentally (don't show math), then explain it conversationally in 2-3 short messages:
+   - First message: Tell them their estimated daily calorie burn (TDEE) based on their stats, and explain the deficit approach. Example: "Based on your stats, your body burns around [X] calories a day. To lose weight steadily, we eat a bit less than that — I'm thinking [Y] calories a day as your target."
+   - Second message: Explain their protein target. Example: "Protein is huge for keeping your muscle while you lose fat. I'm setting your protein goal at [Z]g a day — that's roughly 0.8g per pound of bodyweight."
+
+2. Then ask them about pace — EXACTLY ONE question:
+   "Now — how aggressive do you want to be? I can set you up for:
+   • Slow & steady: ~0.5 lbs/week (small changes, very sustainable)
+   • Moderate: ~1 lb/week (the sweet spot most people do well with)
+   • Aggressive: ~1.5 lbs/week (faster results, requires more discipline)
+   Which feels right for where you're at?"
+
+3. After they choose, confirm warmly and briefly, then immediately output the profile block.
+
+PROFILE OUTPUT:
+After pace is confirmed, send a warm closing line (still as ${coachName}), then output:
 
 <profile>
 {
   "name": "...",
   "age": 0,
   "sex": "male" or "female",
-  "heightCm": 0,
-  "currentWeightKg": 0,
-  "goalWeightKg": 0,
+  "heightIn": 0,
+  "currentWeightLbs": 0,
+  "goalWeightLbs": 0,
   "activityLevel": "sedentary" | "light" | "moderate" | "active",
+  "dailyDeficit": 250 or 500 or 750,
   "interestedInFitness": true | false,
   "habits": "...",
   "challenges": ["...", "..."],
@@ -228,7 +255,9 @@ Once you have ALL of the above, send a warm closing line (still as ${coachName})
 }
 </profile>
 
-Only output the <profile> block when you have everything. Convert imperial units to metric.
+dailyDeficit mapping: slow=250, moderate=500, aggressive=750.
+heightIn = total inches (e.g. 5'10" = 70).
+Only output the <profile> block AFTER the user has chosen their pace.
 
 Current time: ${now.toLocaleString("en-US", { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "numeric" })}`;
 }

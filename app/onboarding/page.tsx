@@ -21,11 +21,25 @@ export default function OnboardingPage() {
     (profileJson: string) => {
       try {
         const raw = JSON.parse(profileJson);
-        const targets = calcTargets(raw.sex, raw.currentWeightKg, raw.heightCm, raw.age, raw.activityLevel);
-        const predictedGoalDate = predictGoalDate(raw.currentWeightKg, raw.goalWeightKg);
+        const dailyDeficit: number = raw.dailyDeficit ?? 500;
+        const weeklyLossLbs = dailyDeficit / 500;
+        const targets = calcTargets(
+          raw.sex,
+          raw.currentWeightLbs,
+          raw.heightIn,
+          raw.age,
+          raw.activityLevel,
+          dailyDeficit
+        );
+        const predictedGoalDate = predictGoalDate(
+          raw.currentWeightLbs,
+          raw.goalWeightLbs,
+          weeklyLossLbs
+        );
 
         const profile: UserProfile = {
           ...raw,
+          dailyDeficit,
           dailyCalorieTarget: targets.calories,
           dailyProteinTarget: targets.protein,
           predictedGoalDate,

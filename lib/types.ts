@@ -7,16 +7,23 @@ export interface CoachStyle {
   observations: string[];
 }
 
+export interface Milestone {
+  label: string;          // "Week 1", "Month 2", etc.
+  date: string;           // YYYY-MM-DD
+  targetWeightLbs: number;
+}
+
 export interface UserProfile {
   name: string;
   age: number;
   sex: "male" | "female";
-  heightCm: number;
-  currentWeightKg: number;
-  goalWeightKg: number;
+  heightIn: number;           // total inches (e.g. 5'10" = 70)
+  currentWeightLbs: number;
+  goalWeightLbs: number;
   activityLevel: "sedentary" | "light" | "moderate" | "active";
   dailyCalorieTarget: number;
   dailyProteinTarget: number;
+  dailyDeficit: number;       // cal/day deficit chosen by user (250 | 500 | 750)
   coachAvatar: CoachAvatar;
   coachStyle: CoachStyle;
   interestedInFitness: boolean;
@@ -40,7 +47,7 @@ export interface DayLog {
   entries: FoodEntry[];
   totalCalories: number;
   totalProtein: number;
-  weightKg?: number;
+  weightLbs?: number;
   aiReflection?: string;
 }
 

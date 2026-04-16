@@ -72,7 +72,7 @@ export function ChatInterface({ profile, initialMessages }: Props) {
         deleteFoodEntry(input.date as string, input.entry_id as string);
         refreshLog();
       } else if (name === "log_weight") {
-        logWeight((input.date as string) || today, input.weight_kg as number);
+        logWeight((input.date as string) || today, input.weight_lbs as number);
         refreshLog();
       } else if (name === "update_coach_style") {
         const field = input.field as string;

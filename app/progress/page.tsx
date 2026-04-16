@@ -15,8 +15,8 @@ import {
   ReferenceLine,
 } from "recharts";
 import { getProfile, getAllLogs } from "@/lib/storage";
-import { aggregateLast, computeTrajectory, weeklyStats } from "@/lib/calories";
-import type { UserProfile, DailyLogs } from "@/lib/types";
+import { aggregateLast, computeTrajectory, weeklyStats, generateMilestones } from "@/lib/calories";
+import type { UserProfile, DailyLogs, Milestone } from "@/lib/types";
 import type { Trajectory } from "@/lib/calories";
 
 export default function ProgressPage() {
@@ -24,6 +24,7 @@ export default function ProgressPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [logs, setLogs] = useState<DailyLogs>({});
   const [trajectory, setTrajectory] = useState<Trajectory | null>(null);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [summary, setSummary] = useState<string>("");
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -38,6 +39,8 @@ export default function ProgressPage() {
     setProfile(p);
     setLogs(allLogs);
     setTrajectory(computeTrajectory(allLogs, p));
+    const weeklyLossLbs = (p.dailyDeficit ?? 500) / 500;
+    setMilestones(generateMilestones(p.currentWeightLbs, p.goalWeightLbs, weeklyLossLbs));
     setLoading(false);
   }, [router]);
 
@@ -57,8 +60,8 @@ export default function ProgressPage() {
   }));
 
   const weightChartData = agg30
-    .filter((d) => d.weightKg !== null)
-    .map((d) => ({ date: d.date.slice(5), weight: d.weightKg }));
+    .filter((d) => d.weightLbs !== null)
+    .map((d) => ({ date: d.date.slice(5), weight: d.weightLbs }));
 
   const generateSummary = async () => {
     if (!profile) return;
@@ -100,6 +103,12 @@ export default function ProgressPage() {
     insufficient_data: "Keep logging",
   };
 
+  const currentWeightLbs = trajectory.currentWeightLbs ?? profile.currentWeightLbs;
+  const weeklyLossLbs = (profile.dailyDeficit ?? 500) / 500;
+
+  // Find next milestone not yet reached
+  const nextMilestone = milestones.find((m) => m.targetWeightLbs > (trajectory.currentWeightLbs ?? profile.goalWeightLbs + 1));
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Nav */}
@@ -120,16 +129,16 @@ export default function ProgressPage() {
           <div className="flex flex-wrap gap-6">
             <div>
               <p className="text-3xl font-bold text-gray-800">
-                {trajectory.currentWeightKg ?? profile.currentWeightKg}
-                <span className="text-base font-normal text-gray-400">kg</span>
+                {currentWeightLbs}
+                <span className="text-base font-normal text-gray-400"> lbs</span>
               </p>
               <p className="text-xs text-gray-400">Current weight</p>
             </div>
             <div className="text-2xl text-gray-300 self-center">→</div>
             <div>
               <p className="text-3xl font-bold text-emerald-600">
-                {profile.goalWeightKg}
-                <span className="text-base font-normal text-gray-400">kg</span>
+                {profile.goalWeightLbs}
+                <span className="text-base font-normal text-gray-400"> lbs</span>
               </p>
               <p className="text-xs text-gray-400">Goal weight</p>
             </div>
@@ -159,12 +168,46 @@ export default function ProgressPage() {
             )}
           </div>
 
-          {trajectory.projectedWeeklyLossKg > 0 && (
+          {trajectory.projectedWeeklyLossLbs > 0 && (
             <p className="text-xs text-gray-400 mt-2">
-              Projected loss: {trajectory.projectedWeeklyLossKg}kg/week based
-              on last 14 days
+              Projected loss: {trajectory.projectedWeeklyLossLbs} lbs/week based on last 14 days
             </p>
           )}
+        </section>
+
+        {/* Milestones */}
+        <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-4">
+            Your journey — {weeklyLossLbs} lb/week pace
+          </h2>
+          <div className="space-y-2">
+            {milestones.map((m) => {
+              const reached = currentWeightLbs <= m.targetWeightLbs;
+              const isNext = nextMilestone?.label === m.label;
+              return (
+                <div
+                  key={m.label}
+                  className={`flex items-center justify-between py-2 px-3 rounded-xl text-sm ${
+                    reached
+                      ? "bg-emerald-50 text-emerald-700"
+                      : isNext
+                      ? "bg-blue-50 text-blue-700 font-medium"
+                      : "text-gray-500"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    {reached ? "✓" : isNext ? "→" : "·"} {m.label}
+                  </span>
+                  <span>
+                    {m.targetWeightLbs} lbs{" "}
+                    <span className="text-xs opacity-60">
+                      {new Date(m.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    </span>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </section>
 
         {/* This week */}
@@ -294,10 +337,10 @@ export default function ProgressPage() {
                     borderRadius: 8,
                     boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
                   }}
-                  formatter={(v) => [`${v}kg`, "Weight"]}
+                  formatter={(v) => [`${v} lbs`, "Weight"]}
                 />
                 <ReferenceLine
-                  y={profile.goalWeightKg}
+                  y={profile.goalWeightLbs}
                   stroke="#10b981"
                   strokeDasharray="4 4"
                   label={{ value: "goal", position: "right", fontSize: 10, fill: "#10b981" }}

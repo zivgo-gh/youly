@@ -87,10 +87,10 @@ export function deleteFoodEntry(date: string, entryId: string): void {
   saveAllLogs(logs);
 }
 
-export function logWeight(date: string, weightKg: number): void {
+export function logWeight(date: string, weightLbs: number): void {
   const logs = getAllLogs();
   const day = logs[date] ?? { entries: [], totalCalories: 0, totalProtein: 0 };
-  day.weightKg = weightKg;
+  day.weightLbs = weightLbs;
   logs[date] = day;
   saveAllLogs(logs);
 }
