@@ -26,6 +26,12 @@ const STEPS = [
     title: "Type if you prefer",
     body: "Not feeling the mic? You can always type instead. Ask questions, log food, check your progress — your coach handles it all.",
   },
+  {
+    arrow: "up",
+    target: "top",
+    title: "Track your progress",
+    body: "Tap \"Progress →\" in the top right to see your daily, weekly, and monthly results — calorie trends, protein, weight, and your milestone journey to your goal.",
+  },
 ];
 
 export function FirstRunTour({ coachName, onDone }: Props) {
@@ -41,7 +47,9 @@ export function FirstRunTour({ coachName, onDone }: Props) {
       {/* Tooltip card */}
       <div
         className={`fixed z-50 left-4 right-4 ${
-          current.target === "top" ? "top-[130px]" : "bottom-[160px]"
+          current.target === "top" && step === 0 ? "top-[130px]" :
+          current.target === "top" ? "top-[56px]" :
+          "bottom-[160px]"
         }`}
       >
         {/* Arrow pointing up toward macro strip */}
