@@ -381,6 +381,21 @@ export default function ProgressPage() {
             </p>
           )}
         </section>
+
+        {/* Reset */}
+        <div className="pb-4 text-center">
+          <button
+            onClick={() => {
+              if (confirm("This will erase all your data and restart onboarding. Are you sure?")) {
+                localStorage.clear();
+                window.location.replace("/onboarding");
+              }
+            }}
+            className="text-xs text-gray-300 hover:text-red-400 transition-colors"
+          >
+            Reset app & start over
+          </button>
+        </div>
       </div>
     </div>
   );
