@@ -121,69 +121,66 @@ export default function OnboardingPage() {
   // ── Intro screen ───────────────────────────────────────────────────────────
   if (!introDone) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-emerald-600 to-emerald-800 flex flex-col text-white">
-        {/* Logo */}
-        <div className="px-6 pt-14 pb-2">
-          <p className="text-3xl font-bold tracking-tight">Youly</p>
-          <p className="text-emerald-200 text-sm mt-0.5">Your AI weight loss coach</p>
-        </div>
-
-        {/* Hero */}
-        <div className="px-6 pt-6 pb-8">
-          <h1 className="text-[2rem] font-bold leading-tight">
-            Lose weight by just<br />talking about your day.
+      <div className="h-screen flex flex-col bg-emerald-700 text-white overflow-hidden">
+        {/* Compact green header */}
+        <div className="px-6 pt-12 pb-5 shrink-0">
+          <p className="text-sm font-semibold tracking-widest text-emerald-300 uppercase mb-2">Youly</p>
+          <h1 className="text-[1.75rem] font-bold leading-tight">
+            Weight loss without<br />the spreadsheets.
           </h1>
-          <p className="text-emerald-100 mt-3 text-base leading-relaxed">
-            No food databases. No barcode scanning. No homework.
-            Just tell your coach what you ate and it handles the rest.
+          <p className="text-emerald-200 text-sm mt-2 leading-relaxed">
+            No food databases. No barcode scanning.<br />Just talk — your coach handles the rest.
           </p>
         </div>
 
-        {/* Value props */}
-        <div className="flex-1 bg-white rounded-t-3xl px-6 pt-8 pb-10 flex flex-col gap-5">
-          {[
-            {
-              icon: "🎙️",
-              title: "Log by talking",
-              body: "Say \"I had a burger and fries\" — your coach estimates the calories and protein instantly. No searching, no scanning.",
-            },
-            {
-              icon: "🧠",
-              title: "A coach that actually knows you",
-              body: "Not a generic app. An AI dietitian + personal trainer that adapts its tone and approach to how you respond.",
-            },
-            {
-              icon: "📍",
-              title: "Small goals, not one scary number",
-              body: "Your journey is broken into week-by-week milestones so the end goal never feels out of reach.",
-            },
-            {
-              icon: "✏️",
-              title: "Mistakes are fine",
-              body: "Just say \"that was actually yesterday\" or \"I had less than that\" — your coach fixes it, no forms needed.",
-            },
-          ].map(({ icon, title, body }) => (
-            <div key={title} className="flex gap-4 items-start">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-50 flex items-center justify-center text-xl shrink-0">
-                {icon}
+        {/* White card — flex column so CTA stays at bottom */}
+        <div className="flex-1 bg-white rounded-t-3xl flex flex-col overflow-hidden">
+          {/* Scrollable value props */}
+          <div className="flex-1 overflow-y-auto px-6 pt-6 space-y-4">
+            {[
+              {
+                icon: "🎙️",
+                title: "Log by talking",
+                body: "Say \"I had a burger and fries\" — calories and protein logged instantly.",
+              },
+              {
+                icon: "🧠",
+                title: "A coach that adapts to you",
+                body: "An AI dietitian + trainer that learns your style and adjusts its approach over time.",
+              },
+              {
+                icon: "📍",
+                title: "Week-by-week milestones",
+                body: "Your journey is broken into small wins — no scary end dates.",
+              },
+              {
+                icon: "✏️",
+                title: "Easy to correct",
+                body: "\"That was actually yesterday\" — your coach fixes it, no forms.",
+              },
+            ].map(({ icon, title, body }) => (
+              <div key={title} className="flex gap-3 items-start">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center text-lg shrink-0">
+                  {icon}
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-800 text-sm">{title}</p>
+                  <p className="text-gray-400 text-sm leading-snug mt-0.5">{body}</p>
+                </div>
               </div>
-              <div>
-                <p className="font-semibold text-gray-800 text-sm">{title}</p>
-                <p className="text-gray-500 text-sm leading-relaxed mt-0.5">{body}</p>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
 
-          <button
-            onClick={() => setIntroDone(true)}
-            className="mt-4 w-full py-4 rounded-2xl bg-emerald-500 text-white font-bold text-base shadow-lg active:scale-95 transition-transform"
-          >
-            Meet your coach →
-          </button>
-
-          <p className="text-center text-xs text-gray-400 -mt-1">
-            Free to use · No account needed
-          </p>
+          {/* CTA — always visible, pinned to bottom */}
+          <div className="shrink-0 px-6 pt-4 pb-10">
+            <button
+              onClick={() => setIntroDone(true)}
+              className="w-full py-4 rounded-2xl bg-emerald-500 text-white font-bold text-base shadow-lg active:scale-95 transition-transform"
+            >
+              Meet your coach →
+            </button>
+            <p className="text-center text-xs text-gray-400 mt-2">Free to use · No account needed</p>
+          </div>
         </div>
       </div>
     );
