@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { margin: 0; background: #fff; display: flex; align-items: center; justify-content: center; height: 100vh; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c" width="512" height="512"></canvas>
+<a id="dl" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:12px 24px;background:#059669;color:white;font-family:sans-serif;font-weight:bold;border-radius:8px;text-decoration:none">Download PNG</a>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+// Background
+ctx.fillStyle = '#059669';
+ctx.beginPath();
+ctx.roundRect(0, 0, 512, 512, 80);
+ctx.fill();
+
+// Text
+ctx.fillStyle = '#ffffff';
+ctx.font = 'bold 108px Arial Black, Arial, sans-serif';
+ctx.textAlign = 'center';
+ctx.textBaseline = 'middle';
+ctx.letterSpacing = '6px';
+ctx.fillText('YOULY', 256, 256);
+
+// Download link
+const dl = document.getElementById('dl');
+dl.href = canvas.toDataURL('image/png');
+dl.download = 'youly-logo.png';
+</script>
+</body>
+</html>

@@ -31,7 +31,7 @@ Arc (Youly) is a conversational AI weight loss coach. The data layer is **local-
 
 ### Auth model
 
-- **Supabase Auth** handles Google and Apple OAuth. Session cookie is maintained by `middleware.ts`.
+- **Supabase Auth** handles Google and Apple OAuth. Session cookie is maintained by `proxy.ts`.
 - **localStorage keys are scoped by uid**: `arc_profile_<uid>`, `arc_logs_<uid>`, `arc_chat_<uid>`. All storage functions in `lib/storage.ts` accept an optional `uid` param; without it they fall back to legacy unscoped keys.
 - **Cloud backup** (non-blocking): after saves, `syncProfileToCloud` / `syncLogsToCloud` push to Supabase `profile_backups` / `log_backups` tables. On fresh login to an empty device, `restoreFromCloud` pulls the backup.
 - **Consent** is tracked per-uid in localStorage (`arc_consent_<uid>`).
@@ -74,10 +74,13 @@ All three routes are Node.js runtime (`export const runtime = "nodejs"`).
 
 ### Onboarding flow
 
-1. User lands on `/onboarding` and sees a **coach picker** — 4 cards (Alex ⚡, Dr. Maya 🔬, Sam 😊, Coach Rivera 💪). This is a purely cosmetic/identity choice; all coaches start from identical settings.
-2. Tapping a card sets `selectedAvatar` state and triggers a `"start"` message to `/api/onboarding` (filtered from display).
-3. Claude introduces itself by the chosen coach's name and collects profile info **one question at a time** — texting style, never more than one question per message.
-4. When Claude has everything, it appends a `<profile>` JSON block → `onProfileComplete` fires → `lib/calories.ts` computes calorie/protein targets → profile saved → redirect to `/chat`.
+1. **Intro screen** — marketing screen with value props and "Meet your coach →" CTA.
+2. **Coach picker** — 4 cards (Alex, Dr. Maya, Sam, Coach Rivera) using a 2×2 grid photo (`public/coaches.png`) via CSS quadrant technique in `components/shared/CoachPhoto.tsx`. Purely cosmetic — all coaches behave identically.
+3. Tapping a card triggers a `"start"` message to `/api/onboarding` (filtered from display). Claude collects profile info **one question at a time**, texting style.
+4. When Claude has all info, it outputs a `<profile>` JSON block → `onProfileComplete` fires → `lib/calories.ts` computes targets → profile saved (uid-scoped) + background cloud sync → "I'm ready — let's go!" CTA appears → `/chat`.
+
+Calorie target: Mifflin-St Jeor TDEE minus deficit (250/500/750 cal/day for slow/moderate/aggressive pace).
+Protein target: USDA DRI g/kg by activity level (sedentary=1.0, light=1.2, moderate=1.4, active=1.6).
 
 ### Coach avatar vs. coach personality
 
@@ -112,3 +115,7 @@ Returning new device: `/` → `/consent` (new localStorage) → agree → cloud 
 ### Mobile dev access
 
 The `allowedDevOrigins` in `next.config.ts` is set to `10.0.0.140` (local machine IP). Update this if the IP changes. The dev overlay is disabled via `devIndicators: false`.
+
+### Secrets — never commit
+
+`.env.local`, `client_secret*.json`, and `*password*.txt` are gitignored. All three env vars (`ANTHROPIC_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`) must be set in both `.env.local` (local) and Vercel environment variables (production).

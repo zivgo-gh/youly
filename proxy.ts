@@ -32,16 +32,17 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Protected routes — redirect to /login if not authenticated
-  const protectedRoutes = ["/chat", "/progress", "/consent"];
+  // Protected routes — redirect to /intro if not authenticated
+  const protectedRoutes = ["/chat", "/progress"];
   if (!user && protectedRoutes.some((r) => pathname.startsWith(r))) {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    url.pathname = "/intro";
     return NextResponse.redirect(url);
   }
 
-  // Logged-in users shouldn't visit /login (redirect to /)
-  if (user && pathname === "/login") {
+  // Logged-in users visiting /login, /consent, or /intro → send to /
+  const preAuthRoutes = ["/login", "/consent", "/intro"];
+  if (user && preAuthRoutes.some((r) => pathname === r)) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
