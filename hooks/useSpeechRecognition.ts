@@ -16,6 +16,7 @@ function getSR(): typeof SpeechRecognition | null {
 export function useSpeechRecognition({ onFinalResult, onInterimResult }: Options) {
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const accumulatedRef = useRef<string>("");
 
   const start = useCallback(() => {
     const SR = getSR();
@@ -24,28 +25,40 @@ export function useSpeechRecognition({ onFinalResult, onInterimResult }: Options
       return;
     }
 
+    accumulatedRef.current = "";
+
     const recognition: SpeechRecognition = new SR();
-    recognition.continuous = false;
+    recognition.continuous = true;      // keep listening until user stops
     recognition.interimResults = true;
     recognition.lang = "en-US";
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       let interim = "";
-      let final = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         if (result.isFinal) {
-          final += result[0].transcript;
+          accumulatedRef.current += result[0].transcript + " ";
         } else {
           interim += result[0].transcript;
         }
       }
-      if (interim) onInterimResult?.(interim);
-      if (final) onFinalResult(final.trim());
+      // Show live interim text
+      onInterimResult?.(accumulatedRef.current + interim);
     };
 
-    recognition.onend = () => setIsListening(false);
-    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => {
+      setIsListening(false);
+      const final = accumulatedRef.current.trim();
+      if (final) onFinalResult(final);
+      accumulatedRef.current = "";
+    };
+
+    recognition.onerror = (event) => {
+      // "aborted" fires when we call stop() manually — not a real error
+      if (event.error === "aborted") return;
+      setIsListening(false);
+      accumulatedRef.current = "";
+    };
 
     recognitionRef.current = recognition;
     recognition.start();
@@ -54,7 +67,7 @@ export function useSpeechRecognition({ onFinalResult, onInterimResult }: Options
 
   const stop = useCallback(() => {
     recognitionRef.current?.stop();
-    setIsListening(false);
+    // onend will fire and trigger onFinalResult
   }, []);
 
   const toggle = useCallback(() => {
