@@ -164,41 +164,44 @@ export function ChatInterface({ profile, initialMessages }: Props) {
         </header>
 
         {/* Mobile macro strip */}
-        <div className="md:hidden bg-white border-b border-gray-100 px-4 pt-2.5 pb-3">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 mb-1.5">
+        <div className="md:hidden bg-white border-b border-gray-100 px-4 pt-2 pb-3">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 mb-2">
             {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
           </p>
-          <div className="flex gap-5 items-end">
+          <div className="flex gap-4 items-start">
             {/* Calories */}
             <div className="flex-1">
-              <div className="flex items-baseline gap-1">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 mb-0.5">Calories</p>
+              <div className="flex items-baseline gap-1.5">
                 <span
-                  className="font-bold text-gray-800 tabular-nums leading-none"
-                  style={{ fontFamily: "var(--font-dm-sans)", fontSize: "1.6rem" }}
+                  className="font-bold text-gray-900 tabular-nums leading-none"
+                  style={{ fontFamily: "var(--font-dm-sans)", fontSize: "2rem" }}
                 >
                   {todayLog.totalCalories}
                 </span>
-                <span className="text-xs text-gray-400 font-medium">/{profile.dailyCalorieTarget} kcal</span>
+                <span className="text-sm font-semibold text-gray-400">/ {profile.dailyCalorieTarget} kcal</span>
               </div>
-              <div className="mt-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+              <div className="mt-1.5 h-2 rounded-full bg-gray-100 overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${todayLog.totalCalories > profile.dailyCalorieTarget ? "bg-orange-400" : "bg-emerald-500"}`}
                   style={{ width: `${Math.min(todayLog.totalCalories / profile.dailyCalorieTarget, 1) * 100}%` }}
                 />
               </div>
             </div>
+            <div className="w-px h-10 bg-gray-100 self-center" />
             {/* Protein */}
             <div className="flex-1">
-              <div className="flex items-baseline gap-1">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-blue-600 mb-0.5">Protein</p>
+              <div className="flex items-baseline gap-1.5">
                 <span
-                  className="font-bold text-gray-800 tabular-nums leading-none"
-                  style={{ fontFamily: "var(--font-dm-sans)", fontSize: "1.6rem" }}
+                  className="font-bold text-gray-900 tabular-nums leading-none"
+                  style={{ fontFamily: "var(--font-dm-sans)", fontSize: "2rem" }}
                 >
                   {todayLog.totalProtein}
                 </span>
-                <span className="text-xs text-gray-400 font-medium">/{profile.dailyProteinTarget}g protein</span>
+                <span className="text-sm font-semibold text-gray-400">/ {profile.dailyProteinTarget}g</span>
               </div>
-              <div className="mt-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+              <div className="mt-1.5 h-2 rounded-full bg-gray-100 overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${todayLog.totalProtein > profile.dailyProteinTarget ? "bg-orange-400" : "bg-blue-500"}`}
                   style={{ width: `${Math.min(todayLog.totalProtein / profile.dailyProteinTarget, 1) * 100}%` }}
