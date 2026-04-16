@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { useStreamingChat } from "@/hooks/useStreamingChat";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { MessageBubble } from "./MessageBubble";
 import { MacroSidebar } from "./MacroSidebar";
+import { FirstRunTour } from "./FirstRunTour";
 import type { UserProfile, DailyLogs, ChatMessage } from "@/lib/types";
 import type { Trajectory } from "@/lib/calories";
 import { computeTrajectory, todayStr } from "@/lib/calories";
@@ -35,6 +36,10 @@ export function ChatInterface({ profile, initialMessages }: Props) {
   );
   const [input, setInput] = useState("");
   const [interimText, setInterimText] = useState("");
+  const [showTour, setShowTour] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("youly_tour_done") !== "1";
+  });
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const avatar = AVATARS[profile.coachAvatar];
@@ -141,7 +146,7 @@ export function ChatInterface({ profile, initialMessages }: Props) {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 relative">
       {/* Sidebar — desktop only */}
       <aside className="hidden md:flex flex-col w-72 bg-white border-r border-gray-100 overflow-y-auto">
         <div className="p-4 border-b border-gray-100 flex items-center gap-3">
@@ -226,9 +231,15 @@ export function ChatInterface({ profile, initialMessages }: Props) {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
           {messages.length === 0 && !streamingText && (
-            <div className="text-center text-gray-400 mt-16 flex flex-col items-center gap-3">
+            <div className="text-center text-gray-400 mt-16 flex flex-col items-center gap-3 px-6">
               <CoachPhoto avatar={profile.coachAvatar} size={72} />
-              <p className="text-lg">{avatar.name} is ready.<br />Tap the mic and start talking.</p>
+              <div>
+                <p className="text-lg font-semibold text-gray-700">{avatar.name} is ready</p>
+                <p className="text-sm text-gray-400 mt-1 leading-relaxed">
+                  Tell me what you&apos;re eating today and I&apos;ll track your calories and protein automatically.
+                  <br />Tap the mic and just start talking.
+                </p>
+              </div>
             </div>
           )}
 
@@ -334,6 +345,16 @@ export function ChatInterface({ profile, initialMessages }: Props) {
           </div>
         </div>
       </main>
+
+      {showTour && (
+        <FirstRunTour
+          coachName={avatar.name}
+          onDone={() => {
+            localStorage.setItem("youly_tour_done", "1");
+            setShowTour(false);
+          }}
+        />
+      )}
     </div>
   );
 }
