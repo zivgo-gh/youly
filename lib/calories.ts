@@ -164,8 +164,16 @@ export function calcTargets(
 
   const tdee = Math.round(bmr * activityMultipliers[activityLevel]);
   const calories = Math.round(tdee - dailyDeficit);
-  // ~0.8g protein per lb of bodyweight (≈1.76g/kg) — optimal for muscle preservation
-  const protein = Math.round(weightLbs * 0.8);
+
+  // Protein: DRI-based, scaled by activity for muscle preservation during deficit
+  // Baseline RDA is 0.8g/kg; we scale up modestly for weight loss to spare muscle
+  const proteinPerKg = {
+    sedentary: 1.0,  // just above RDA — minimal activity, focus on deficit
+    light: 1.2,      // slightly elevated to offset muscle loss during deficit
+    moderate: 1.4,   // more active, more muscle to preserve
+    active: 1.6,     // active exercisers — upper range still below bodybuilder targets
+  }[activityLevel];
+  const protein = Math.round(weightKg * proteinPerKg);
 
   return { calories, protein, tdee };
 }

@@ -164,9 +164,48 @@ export function ChatInterface({ profile, initialMessages }: Props) {
         </header>
 
         {/* Mobile macro strip */}
-        <div className="md:hidden flex gap-5 items-center px-4 py-2.5 bg-white border-b border-gray-100 text-base text-gray-600">
-          <span>🔥 <strong>{todayLog.totalCalories}</strong>/{profile.dailyCalorieTarget} kcal</span>
-          <span>💪 <strong>{todayLog.totalProtein}</strong>/{profile.dailyProteinTarget}g</span>
+        <div className="md:hidden bg-white border-b border-gray-100 px-4 pt-2.5 pb-3">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 mb-1.5">
+            {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+          </p>
+          <div className="flex gap-5 items-end">
+            {/* Calories */}
+            <div className="flex-1">
+              <div className="flex items-baseline gap-1">
+                <span
+                  className="font-bold text-gray-800 tabular-nums leading-none"
+                  style={{ fontFamily: "var(--font-dm-sans)", fontSize: "1.6rem" }}
+                >
+                  {todayLog.totalCalories}
+                </span>
+                <span className="text-xs text-gray-400 font-medium">/{profile.dailyCalorieTarget} kcal</span>
+              </div>
+              <div className="mt-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${todayLog.totalCalories > profile.dailyCalorieTarget ? "bg-orange-400" : "bg-emerald-500"}`}
+                  style={{ width: `${Math.min(todayLog.totalCalories / profile.dailyCalorieTarget, 1) * 100}%` }}
+                />
+              </div>
+            </div>
+            {/* Protein */}
+            <div className="flex-1">
+              <div className="flex items-baseline gap-1">
+                <span
+                  className="font-bold text-gray-800 tabular-nums leading-none"
+                  style={{ fontFamily: "var(--font-dm-sans)", fontSize: "1.6rem" }}
+                >
+                  {todayLog.totalProtein}
+                </span>
+                <span className="text-xs text-gray-400 font-medium">/{profile.dailyProteinTarget}g protein</span>
+              </div>
+              <div className="mt-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${todayLog.totalProtein > profile.dailyProteinTarget ? "bg-orange-400" : "bg-blue-500"}`}
+                  style={{ width: `${Math.min(todayLog.totalProtein / profile.dailyProteinTarget, 1) * 100}%` }}
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Messages */}
