@@ -17,9 +17,12 @@ export default function LoginPage() {
   return (
     <div className="h-screen flex flex-col bg-emerald-700 overflow-hidden">
       {/* Green header */}
-      <div className="px-6 pt-14 pb-5 shrink-0 text-center">
-        <p className="text-4xl font-black tracking-tight text-emerald-300 uppercase mb-2">Youly</p>
-        <p className="text-emerald-200 text-sm font-medium">Your personal weight loss coach</p>
+      <div className="px-6 pt-14 pb-5 shrink-0">
+        <p className="text-4xl font-black tracking-tight text-emerald-300 uppercase mb-3">Youly</p>
+        <h1 className="text-[1.6rem] font-bold leading-snug text-white">
+          Sign in to meet<br />your coach.
+        </h1>
+        <p className="text-emerald-200 text-sm mt-2">Takes less than a minute.</p>
       </div>
 
       {/* White card */}

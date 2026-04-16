@@ -13,14 +13,10 @@
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
-// Background
-ctx.fillStyle = '#059669';
-ctx.beginPath();
-ctx.roundRect(0, 0, 512, 512, 80);
-ctx.fill();
+// Transparent background — no fill
 
 // Text
-ctx.fillStyle = '#ffffff';
+ctx.fillStyle = '#059669';
 ctx.font = 'bold 108px Arial Black, Arial, sans-serif';
 ctx.textAlign = 'center';
 ctx.textBaseline = 'middle';
