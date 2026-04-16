@@ -13,6 +13,7 @@ import { calcTargets, predictGoalDate } from "@/lib/calories";
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const [introDone, setIntroDone] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState<CoachAvatar | null>(null);
   const [input, setInput] = useState("");
   const [interimText, setInterimText] = useState("");
@@ -116,6 +117,77 @@ export default function OnboardingPage() {
   const displayMessages = messages.filter(
     (m, i) => !(i === 0 && m.role === "user" && m.content === "start")
   );
+
+  // ── Intro screen ───────────────────────────────────────────────────────────
+  if (!introDone) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-emerald-600 to-emerald-800 flex flex-col text-white">
+        {/* Logo */}
+        <div className="px-6 pt-14 pb-2">
+          <p className="text-3xl font-bold tracking-tight">Youly</p>
+          <p className="text-emerald-200 text-sm mt-0.5">Your AI weight loss coach</p>
+        </div>
+
+        {/* Hero */}
+        <div className="px-6 pt-6 pb-8">
+          <h1 className="text-[2rem] font-bold leading-tight">
+            Lose weight by just<br />talking about your day.
+          </h1>
+          <p className="text-emerald-100 mt-3 text-base leading-relaxed">
+            No food databases. No barcode scanning. No homework.
+            Just tell your coach what you ate and it handles the rest.
+          </p>
+        </div>
+
+        {/* Value props */}
+        <div className="flex-1 bg-white rounded-t-3xl px-6 pt-8 pb-10 flex flex-col gap-5">
+          {[
+            {
+              icon: "🎙️",
+              title: "Log by talking",
+              body: "Say \"I had a burger and fries\" — your coach estimates the calories and protein instantly. No searching, no scanning.",
+            },
+            {
+              icon: "🧠",
+              title: "A coach that actually knows you",
+              body: "Not a generic app. An AI dietitian + personal trainer that adapts its tone and approach to how you respond.",
+            },
+            {
+              icon: "📍",
+              title: "Small goals, not one scary number",
+              body: "Your journey is broken into week-by-week milestones so the end goal never feels out of reach.",
+            },
+            {
+              icon: "✏️",
+              title: "Mistakes are fine",
+              body: "Just say \"that was actually yesterday\" or \"I had less than that\" — your coach fixes it, no forms needed.",
+            },
+          ].map(({ icon, title, body }) => (
+            <div key={title} className="flex gap-4 items-start">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-50 flex items-center justify-center text-xl shrink-0">
+                {icon}
+              </div>
+              <div>
+                <p className="font-semibold text-gray-800 text-sm">{title}</p>
+                <p className="text-gray-500 text-sm leading-relaxed mt-0.5">{body}</p>
+              </div>
+            </div>
+          ))}
+
+          <button
+            onClick={() => setIntroDone(true)}
+            className="mt-4 w-full py-4 rounded-2xl bg-emerald-500 text-white font-bold text-base shadow-lg active:scale-95 transition-transform"
+          >
+            Meet your coach →
+          </button>
+
+          <p className="text-center text-xs text-gray-400 -mt-1">
+            Free to use · No account needed
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // ── Avatar picker ──────────────────────────────────────────────────────────
   if (!selectedAvatar) {
