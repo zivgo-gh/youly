@@ -94,6 +94,10 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
     setTrajectory(computeTrajectory(allLogs, profile));
   }, [profile, uid]);
 
+  // Always-fresh ref so stale closures (onDone, onToolCall) call the latest refreshLog
+  const refreshLogRef = useRef(refreshLog);
+  refreshLogRef.current = refreshLog;
+
   const handleToolCall = useCallback(
     (name: string, input: Record<string, unknown>) => {
       const today = todayStr();
@@ -145,7 +149,10 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
       endpoint: "/api/chat",
       getBody: (msgs) => ({ messages: msgs, profile, logs, clientTime: new Date().toISOString() }),
       onToolCall: handleToolCall,
-      onDone: (finalMessages) => saveChatHistory(finalMessages, uid, todayStr()),
+      onDone: (finalMessages) => {
+        saveChatHistory(finalMessages, uid, todayStr());
+        refreshLogRef.current();
+      },
     });
 
   const displayMessages = isViewingToday ? messages : pastMessages;
