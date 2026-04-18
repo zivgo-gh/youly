@@ -70,7 +70,7 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
   const [userEmail, setUserEmail] = useState<string>("");
   const [viewDate, setViewDate] = useState(todayStr());
   const [pastMessages, setPastMessages] = useState<ChatMessage[]>([]);
-  const [showFoodLog, setShowFoodLog] = useState(false);
+  const [showFoodLog, setShowFoodLog] = useState(true);
   const [editingEntry, setEditingEntry] = useState<{ date: string; entry: FoodEntry } | null>(null);
   const [editForm, setEditForm] = useState({ description: "", calories: "", protein: "" });
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied">("idle");

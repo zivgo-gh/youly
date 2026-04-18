@@ -33,6 +33,15 @@ export function useStreamingChat({
   const [isLoading, setIsLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
+  // Refs ensure the async streaming loop always calls the latest callbacks,
+  // even when sendMessage holds a stale closure from a prior render.
+  const onToolCallRef = useRef(onToolCall);
+  onToolCallRef.current = onToolCall;
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+  const onProfileCompleteRef = useRef(onProfileComplete);
+  onProfileCompleteRef.current = onProfileComplete;
+
   const sendMessage = useCallback(
     async (userText: string) => {
       const userMsg: ChatMessage = {
@@ -85,9 +94,9 @@ export function useStreamingChat({
                 event.input &&
                 event.id
               ) {
-                onToolCall?.(event.name, event.input, event.id);
+                onToolCallRef.current?.(event.name, event.input, event.id);
               } else if (event.type === "profile_complete" && event.profileJson) {
-                onProfileComplete?.(event.profileJson);
+                onProfileCompleteRef.current?.(event.profileJson);
               } else if (event.type === "done") {
                 const assistantMsg: ChatMessage = {
                   role: "assistant",
@@ -97,7 +106,7 @@ export function useStreamingChat({
                 const finalMessages = [...newMessages, assistantMsg];
                 setMessages(finalMessages);
                 setStreamingText("");
-                onDone?.(finalMessages);
+                onDoneRef.current?.(finalMessages);
               } else if (event.type === "error") {
                 throw new Error(event.message ?? "Stream error");
               }
@@ -120,7 +129,7 @@ export function useStreamingChat({
         setIsLoading(false);
       }
     },
-    [messages, endpoint, getBody, onToolCall, onProfileComplete, onDone]
+    [messages, endpoint, getBody]
   );
 
   const reset = useCallback(() => {
