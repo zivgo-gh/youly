@@ -132,8 +132,8 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
         setLogs(prev => {
           const day = prev[date];
           if (!day) return prev;
-          const entries = day.entries.map(e => e.id === entryId ? { ...e, ...updates, corrected: true } : e);
-          return { ...prev, [date]: { ...day, entries, totalCalories: entries.reduce((s, e) => s + e.estimatedCalories, 0), totalProtein: entries.reduce((s, e) => s + e.estimatedProtein, 0) } };
+          const entries = day.entries.map(e => e.id === entryId ? { ...e, ...updates, corrected: true } as FoodEntry : e);
+          return { ...prev, [date]: { ...day, entries, totalCalories: entries.reduce((s, e) => s + (e.estimatedCalories ?? 0), 0), totalProtein: entries.reduce((s, e) => s + (e.estimatedProtein ?? 0), 0) } };
         });
       } else if (name === "delete_food_entry") {
         const date = input.date as string;
