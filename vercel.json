@@ -1,0 +1,6 @@
+{
+  "rateLimit": {
+    "budget": 60,
+    "window": "1m"
+  }
+}
