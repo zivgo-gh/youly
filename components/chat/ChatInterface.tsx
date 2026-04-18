@@ -98,6 +98,11 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
   const refreshLogRef = useRef(refreshLog);
   refreshLogRef.current = refreshLog;
 
+  // Auto-update trajectory whenever logs change
+  useEffect(() => {
+    setTrajectory(computeTrajectory(logs, profile));
+  }, [logs, profile]);
+
   const handleToolCall = useCallback(
     (name: string, input: Record<string, unknown>) => {
       const today = todayStr();
@@ -105,29 +110,48 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
       if (name === "log_food") {
         const date = (input.date as string) || today;
         const time = (input.time as string) || new Date().toTimeString().slice(0, 5);
-        const timestamp = `${date}T${time}:00`;
-        addFoodEntry(date, {
+        const newEntry: FoodEntry = {
           id: uuid(),
-          timestamp,
+          timestamp: `${date}T${time}:00`,
           description: input.description as string,
           estimatedCalories: input.estimated_calories as number,
           estimatedProtein: input.estimated_protein as number,
           meal: input.meal as MealType | undefined,
-        }, uid);
-        refreshLog();
+        };
+        addFoodEntry(date, newEntry, uid);
+        setLogs(prev => {
+          const day = prev[date] ?? { entries: [], totalCalories: 0, totalProtein: 0 };
+          const entries = [...day.entries, newEntry];
+          return { ...prev, [date]: { ...day, entries, totalCalories: entries.reduce((s, e) => s + e.estimatedCalories, 0), totalProtein: entries.reduce((s, e) => s + e.estimatedProtein, 0) } };
+        });
       } else if (name === "correct_food_entry") {
-        correctFoodEntry(input.date as string, input.entry_id as string, {
-          description: input.updated_description as string | undefined,
-          estimatedCalories: input.updated_calories as number | undefined,
-          estimatedProtein: input.updated_protein as number | undefined,
-        }, uid);
-        refreshLog();
+        const date = input.date as string;
+        const entryId = input.entry_id as string;
+        const updates = { description: input.updated_description as string | undefined, estimatedCalories: input.updated_calories as number | undefined, estimatedProtein: input.updated_protein as number | undefined };
+        correctFoodEntry(date, entryId, updates, uid);
+        setLogs(prev => {
+          const day = prev[date];
+          if (!day) return prev;
+          const entries = day.entries.map(e => e.id === entryId ? { ...e, ...updates, corrected: true } : e);
+          return { ...prev, [date]: { ...day, entries, totalCalories: entries.reduce((s, e) => s + e.estimatedCalories, 0), totalProtein: entries.reduce((s, e) => s + e.estimatedProtein, 0) } };
+        });
       } else if (name === "delete_food_entry") {
-        deleteFoodEntry(input.date as string, input.entry_id as string, uid);
-        refreshLog();
+        const date = input.date as string;
+        const entryId = input.entry_id as string;
+        deleteFoodEntry(date, entryId, uid);
+        setLogs(prev => {
+          const day = prev[date];
+          if (!day) return prev;
+          const entries = day.entries.filter(e => e.id !== entryId);
+          return { ...prev, [date]: { ...day, entries, totalCalories: entries.reduce((s, e) => s + e.estimatedCalories, 0), totalProtein: entries.reduce((s, e) => s + e.estimatedProtein, 0) } };
+        });
       } else if (name === "log_weight") {
-        logWeight((input.date as string) || today, input.weight_lbs as number, uid);
-        refreshLog();
+        const date = (input.date as string) || today;
+        logWeight(date, input.weight_lbs as number, uid);
+        setLogs(prev => {
+          const day = prev[date] ?? { entries: [], totalCalories: 0, totalProtein: 0 };
+          return { ...prev, [date]: { ...day, weightLbs: input.weight_lbs as number } };
+        });
       } else if (name === "update_coach_style") {
         const field = input.field as string;
         const value = input.value;
@@ -141,7 +165,7 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
         }
       }
     },
-    [profile, refreshLog, uid]
+    [profile, uid]
   );
 
   const { messages, streamingText, isLoading, sendMessage, setMessages } =
