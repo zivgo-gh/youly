@@ -363,12 +363,15 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
 
           {/* Food log toggle */}
           {viewedLog.entries.length > 0 && (
-            <button
-              onClick={() => setShowFoodLog(v => !v)}
-              className="w-full mt-2 text-[11px] font-semibold text-gray-400 flex items-center justify-center gap-1"
-            >
-              {showFoodLog ? "▲ Hide food log" : `▼ ${viewedLog.entries.length} item${viewedLog.entries.length === 1 ? "" : "s"} logged`}
-            </button>
+            <div className="mt-3 pt-2 border-t border-gray-100">
+              <button
+                onClick={() => setShowFoodLog(v => !v)}
+                className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <span className="text-gray-400">{showFoodLog ? "▲" : "▼"}</span>
+                {showFoodLog ? "Hide food log" : `${viewedLog.entries.length} item${viewedLog.entries.length === 1 ? "" : "s"} logged`}
+              </button>
+            </div>
           )}
 
           {/* Food log panel */}
