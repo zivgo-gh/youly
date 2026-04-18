@@ -157,6 +157,12 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
 
   const displayMessages = isViewingToday ? messages : pastMessages;
 
+  // Refresh log state whenever a request finishes — catches cases where
+  // the onToolCall callback chain doesn't fire (e.g. AI responds without tools).
+  useEffect(() => {
+    if (!isLoading) refreshLog();
+  }, [isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!isViewingToday) {
       setPastMessages(getChatHistory(uid, viewDate));
