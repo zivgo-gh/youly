@@ -59,7 +59,6 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
 
   // Derive todayLog and viewedLog from logs so they always stay in sync
   const todayLog = useMemo(() => logs[todayStr()] ?? { entries: [], totalCalories: 0, totalProtein: 0 }, [logs]);
-  const [debugMsg, setDebugMsg] = useState("");
   const [input, setInput] = useState("");
   const [interimText, setInterimText] = useState("");
   const [showInput, setShowInput] = useState(false);
@@ -123,7 +122,6 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
           meal: input.meal as MealType | undefined,
         };
         addFoodEntry(date, newEntry, uid);
-        setDebugMsg(`handleToolCall fired: ${newEntry.description} ${newEntry.estimatedCalories}cal`);
         setLogs(prev => {
           const day = prev[date] ?? { entries: [], totalCalories: 0, totalProtein: 0 };
           const entries = [...day.entries, newEntry];
@@ -402,11 +400,6 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
               </div>
             </div>
           </div>
-
-          {/* Debug indicator — remove after diagnosis */}
-          {debugMsg !== "" && (
-            <p className="mt-1 text-[10px] text-orange-500 text-center">{debugMsg}</p>
-          )}
 
           {/* Food log toggle */}
           {viewedLog.entries.length > 0 && (
