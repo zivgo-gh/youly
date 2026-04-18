@@ -8,7 +8,7 @@ import { MacroSidebar } from "./MacroSidebar";
 import { FirstRunTour } from "./FirstRunTour";
 import type { UserProfile, DailyLogs, ChatMessage, FoodEntry, MealType } from "@/lib/types";
 import type { Trajectory } from "@/lib/calories";
-import { computeTrajectory, todayStr } from "@/lib/calories";
+import { computeTrajectory, todayStr, daysBetween } from "@/lib/calories";
 import {
   getAllLogs,
   addFoodEntry,
@@ -79,6 +79,7 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
   const avatar = AVATARS[profile.coachAvatar];
 
   const isViewingToday = viewDate === todayStr();
+  const isEditable = daysBetween(viewDate) <= 3;
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -387,7 +388,7 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
                         <p className="text-sm text-gray-700 leading-snug">{entry.description}</p>
                         <p className="text-[11px] text-gray-400">{entry.estimatedCalories} kcal · {entry.estimatedProtein}g protein</p>
                       </div>
-                      {isViewingToday && (
+                      {isEditable && (
                         <div className="flex gap-1 shrink-0">
                           <button
                             onClick={() => openEdit(entry)}
@@ -396,7 +397,7 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
                             Edit
                           </button>
                           <button
-                            onClick={() => { deleteFoodEntry(todayStr(), entry.id, uid); refreshLog(); }}
+                            onClick={() => { deleteFoodEntry(viewDate, entry.id, uid); refreshLog(); }}
                             className="text-[11px] text-red-400 font-medium px-2 py-0.5 rounded-lg bg-red-50"
                           >
                             ✕
@@ -411,8 +412,8 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
           )}
         </div>
 
-        {/* Past-day banner */}
-        {!isViewingToday && (
+        {/* Past-day banner — only for days older than 3 days */}
+        {!isViewingToday && !isEditable && (
           <div className="md:hidden bg-amber-50 border-b border-amber-100 px-4 py-2 flex items-center justify-between">
             <p className="text-xs text-amber-700">Viewing {formatBannerDate(viewDate)} — read only</p>
             <button
@@ -443,7 +444,7 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
             <MessageBubble key={i} message={msg} coachAvatar={profile.coachAvatar} />
           ))}
 
-          {isViewingToday && streamingText && (
+          {isEditable && streamingText && (
             <MessageBubble
               message={{ role: "assistant", content: streamingText, timestamp: new Date().toISOString() }}
               coachAvatar={profile.coachAvatar}
@@ -451,7 +452,7 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
             />
           )}
 
-          {isViewingToday && isLoading && !streamingText && (
+          {isEditable && isLoading && !streamingText && (
             <div className="flex gap-3">
               <CoachPhoto avatar={profile.coachAvatar} size={36} className="mt-0.5" />
               <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-sm shadow-sm px-4 py-3">
@@ -467,8 +468,8 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
           <div ref={bottomRef} />
         </div>
 
-        {/* Input area — hidden when viewing a past day */}
-        {isViewingToday && (
+        {/* Input area — hidden for days older than 3 days */}
+        {isEditable && (
           <div className="bg-white border-t border-gray-100 px-4 pt-2 pb-4">
             {isListening && (
               <div className="flex items-center justify-center gap-2 mb-2">

@@ -2,8 +2,12 @@ import type { DailyLogs, UserProfile, Milestone } from "./types";
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
+function localDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localDateStr(new Date());
 }
 
 export function dateRange(days: number): string[] {
@@ -11,9 +15,17 @@ export function dateRange(days: number): string[] {
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    result.push(d.toISOString().slice(0, 10));
+    result.push(localDateStr(d));
   }
   return result;
+}
+
+export function daysBetween(dateStr: string): number {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const past = new Date(y, m - 1, d);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  return Math.round((now.getTime() - past.getTime()) / 86400000);
 }
 
 // ─── Aggregates ───────────────────────────────────────────────────────────────
