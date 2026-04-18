@@ -139,11 +139,11 @@ function TermsContent() {
       </section>
       <section>
         <h4 className="font-semibold text-gray-700 mb-1">4. Data Deletion</h4>
-        <p>Local data stays on your device until you delete it. Cloud backup is permanently deleted when you use &quot;Reset my data&quot; in the account menu.</p>
+        <p>Local data stays on your device until you clear it. To request complete deletion of your account and any cloud backup, contact us at support@youly.app.</p>
       </section>
       <section>
         <h4 className="font-semibold text-gray-700 mb-1">5. Contact</h4>
-        <p>Questions? Contact us at privacy@youly.app.</p>
+        <p>Questions? Contact us at support@youly.app.</p>
       </section>
     </>
   );

@@ -19,8 +19,6 @@ import {
   getChatHistory,
   getAvailableChatDates,
   updateProfile,
-  clearAllData,
-  deleteCloudBackups,
 } from "@/lib/storage";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { v4 as uuid } from "uuid";
@@ -656,21 +654,31 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
                 {copyStatus === "copied" ? "Copied! ✓" : "Copy chat transcript"}
               </button>
               <button
-                onClick={async () => {
+                onClick={() => {
                   setShowAccountMenu(false);
-                  if (!confirm("This will permanently erase all your data. Are you sure?")) return;
-                  clearAllData(uid);
-                  if (uid) await deleteCloudBackups(uid);
-                  localStorage.removeItem("arc_intro_done");
-                  localStorage.removeItem("arc_consent_done");
-                  localStorage.removeItem("youly_tour_done");
-                  const supabase = createSupabaseBrowserClient();
-                  await supabase.auth.signOut();
-                  window.location.replace("/intro");
+                  window.location.href = "mailto:support@youly.app";
                 }}
-                className="w-full text-left py-3 px-4 rounded-2xl text-red-400 text-sm hover:bg-red-50 transition-colors"
+                className="w-full text-left py-3 px-4 rounded-2xl text-gray-700 font-medium hover:bg-gray-50 transition-colors"
               >
-                Reset my data
+                Contact support
+              </button>
+              <button
+                onClick={() => {
+                  setShowAccountMenu(false);
+                  window.open("/privacy", "_blank");
+                }}
+                className="w-full text-left py-3 px-4 rounded-2xl text-gray-500 text-sm hover:bg-gray-50 transition-colors"
+              >
+                Privacy policy
+              </button>
+              <button
+                onClick={() => {
+                  setShowAccountMenu(false);
+                  window.open("/terms", "_blank");
+                }}
+                className="w-full text-left py-3 px-4 rounded-2xl text-gray-500 text-sm hover:bg-gray-50 transition-colors"
+              >
+                Terms of use
               </button>
             </div>
           </div>
