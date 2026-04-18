@@ -71,7 +71,7 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
   const [userEmail, setUserEmail] = useState<string>("");
   const [viewDate, setViewDate] = useState(todayStr());
   const [pastMessages, setPastMessages] = useState<ChatMessage[]>([]);
-  const [showFoodLog, setShowFoodLog] = useState(true);
+  const [showFoodLog, setShowFoodLog] = useState(false);
   const [editingEntry, setEditingEntry] = useState<{ date: string; entry: FoodEntry } | null>(null);
   const [editForm, setEditForm] = useState({ description: "", calories: "", protein: "" });
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied">("idle");
@@ -416,7 +416,7 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
                 className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-700 transition-colors"
               >
                 <span className="text-gray-400">{showFoodLog ? "▲" : "▼"}</span>
-                {showFoodLog ? "Hide food log" : `${viewedLog.entries.length} item${viewedLog.entries.length === 1 ? "" : "s"} logged`}
+                {`${viewedLog.entries.length} item${viewedLog.entries.length === 1 ? "" : "s"} logged`}
               </button>
             </div>
           )}
