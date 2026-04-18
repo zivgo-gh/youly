@@ -22,10 +22,10 @@ export async function POST(req: NextRequest) {
   } = body;
 
   const now = clientTime ? new Date(clientTime) : new Date();
-  const systemPrompt = buildSystemPrompt(profile, logs, now, clientDate);
+  const [staticPrompt, dynamicPrompt] = buildSystemPrompt(profile, logs, now, clientDate);
 
-  // Convert our message format to Anthropic format
-  const anthropicMessages: Anthropic.MessageParam[] = messages.map((m) => ({
+  // Cap history to last 20 messages to control token usage
+  const anthropicMessages: Anthropic.MessageParam[] = messages.slice(-20).map((m) => ({
     role: m.role,
     content: m.content,
   }));
@@ -46,12 +46,16 @@ export async function POST(req: NextRequest) {
         while (continueLoop) {
           const response = await anthropic.messages.create({
             model: "claude-sonnet-4-6",
-            max_tokens: 1024,
+            max_tokens: 512,
             system: [
               {
                 type: "text",
-                text: systemPrompt,
+                text: staticPrompt,
                 cache_control: { type: "ephemeral" },
+              },
+              {
+                type: "text",
+                text: dynamicPrompt,
               },
             ],
             tools: CHAT_TOOLS,
