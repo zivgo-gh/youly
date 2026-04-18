@@ -10,7 +10,6 @@ import type { UserProfile, DailyLogs, ChatMessage, FoodEntry, MealType } from "@
 import type { Trajectory } from "@/lib/calories";
 import { computeTrajectory, todayStr } from "@/lib/calories";
 import {
-  getLog,
   getAllLogs,
   addFoodEntry,
   correctFoodEntry,
@@ -54,10 +53,12 @@ interface Props {
 
 export function ChatInterface({ profile, initialMessages, uid }: Props) {
   const [logs, setLogs] = useState<DailyLogs>(() => getAllLogs(uid));
-  const [todayLog, setTodayLog] = useState(() => getLog(todayStr(), uid));
   const [trajectory, setTrajectory] = useState<Trajectory>(() =>
     computeTrajectory(getAllLogs(uid), profile)
   );
+
+  // Derive todayLog and viewedLog from logs so they always stay in sync
+  const todayLog = useMemo(() => logs[todayStr()] ?? { entries: [], totalCalories: 0, totalProtein: 0 }, [logs]);
   const [input, setInput] = useState("");
   const [interimText, setInterimText] = useState("");
   const [showInput, setShowInput] = useState(false);
@@ -89,7 +90,6 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
   const refreshLog = useCallback(() => {
     const allLogs = getAllLogs(uid);
     setLogs(allLogs);
-    setTodayLog(getLog(todayStr(), uid));
     setTrajectory(computeTrajectory(allLogs, profile));
   }, [profile, uid]);
 
@@ -168,7 +168,7 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
   const prevDate = viewIdx < availableDates.length - 1 ? availableDates[viewIdx + 1] : null;
   const nextDate = viewIdx > 0 ? availableDates[viewIdx - 1] : null;
 
-  const viewedLog = isViewingToday ? todayLog : getLog(viewDate, uid);
+  const viewedLog = useMemo(() => logs[viewDate] ?? { entries: [], totalCalories: 0, totalProtein: 0 }, [logs, viewDate]);
 
   const entriesByMeal = useMemo(() => {
     const groups: Partial<Record<MealType, FoodEntry[]>> = {};
