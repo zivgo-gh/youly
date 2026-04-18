@@ -11,13 +11,15 @@ export async function POST(req: NextRequest) {
     messages,
     profile,
     logs,
+    clientTime,
   }: {
     messages: ChatMessage[];
     profile: UserProfile;
     logs: DailyLogs;
+    clientTime?: string;
   } = body;
 
-  const now = new Date();
+  const now = clientTime ? new Date(clientTime) : new Date();
   const systemPrompt = buildSystemPrompt(profile, logs, now);
 
   // Convert our message format to Anthropic format

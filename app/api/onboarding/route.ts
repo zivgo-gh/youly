@@ -7,9 +7,9 @@ export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { messages, avatar }: { messages: ChatMessage[]; avatar: import("@/lib/types").CoachAvatar } = body;
+  const { messages, avatar, clientTime }: { messages: ChatMessage[]; avatar: import("@/lib/types").CoachAvatar; clientTime?: string } = body;
 
-  const now = new Date();
+  const now = clientTime ? new Date(clientTime) : new Date();
   const systemPrompt = buildOnboardingSystemPrompt(now, avatar ?? "alex");
 
   const anthropicMessages: Anthropic.MessageParam[] = messages.map((m) => ({

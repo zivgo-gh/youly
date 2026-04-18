@@ -90,7 +90,7 @@ export default function OnboardingPage() {
 
   const { messages, streamingText, isLoading, sendMessage } = useStreamingChat({
     endpoint: "/api/onboarding",
-    getBody: (msgs) => ({ messages: msgs, avatar: selectedAvatar }),
+    getBody: (msgs) => ({ messages: msgs, avatar: selectedAvatar, clientTime: new Date().toISOString() }),
     onProfileComplete: handleProfileComplete,
   });
 

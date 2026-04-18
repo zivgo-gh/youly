@@ -22,8 +22,9 @@ export const CHAT_TOOLS: Anthropic.Tool[] = [
         description: { type: "string", description: "Description of what was eaten" },
         estimated_calories: { type: "number", description: "Estimated calories" },
         estimated_protein: { type: "number", description: "Estimated protein in grams" },
+        meal: { type: "string", enum: ["breakfast", "lunch", "dinner", "snack"], description: "Meal category. Infer from time or context: before 10am=breakfast, 10am–3pm=lunch, 3pm–6pm=snack, after 6pm=dinner. Override if user says 'for breakfast' etc." },
       },
-      required: ["date", "time", "description", "estimated_calories", "estimated_protein"],
+      required: ["date", "time", "description", "estimated_calories", "estimated_protein", "meal"],
     },
   },
   {
@@ -176,7 +177,7 @@ LAST 7 DAYS SUMMARY:
 - Weight history: ${weightHistory || "no weigh-ins yet"}
 
 BEHAVIOR INSTRUCTIONS:
-- When the user mentions eating or drinking anything, immediately call log_food with your best estimate. Don't ask for exact amounts — estimate based on typical portions.
+- When the user mentions eating or drinking anything, immediately call log_food with your best estimate. Don't ask for exact amounts — estimate based on typical portions. Always include the meal field: infer from the current time (before 10am=breakfast, 10am–3pm=lunch, 3pm–6pm=snack, after 6pm=dinner) unless the user specifies otherwise.
 - When you detect the user is correcting a previous entry ("that was yesterday", "I had less"), call correct_food_entry.
 - Periodically (not every message) share progress toward goal date.
 - If today's protein is tracking low at lunch/dinner time, mention it.

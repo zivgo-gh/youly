@@ -1,4 +1,5 @@
 import type { UserProfile, DailyLogs, DayLog, FoodEntry, ChatMessage } from "./types";
+import { todayStr } from "./calories";
 
 // ─── Key helpers ──────────────────────────────────────────────────────────────
 
@@ -120,36 +121,52 @@ export function setAiReflection(date: string, reflection: string, uid?: string):
   saveAllLogs(logs, uid);
 }
 
-// ─── Chat History ─────────────────────────────────────────────────────────────
+// ─── Chat History (date-scoped) ───────────────────────────────────────────────
 
-export function getChatHistory(uid?: string): ChatMessage[] {
+function chatKey(uid?: string, date?: string): string {
+  const d = date ?? todayStr();
+  return uid ? `arc_chat_${uid}_${d}` : `arc_chat_history_${d}`;
+}
+
+export function getChatHistory(uid?: string, date?: string): ChatMessage[] {
   if (typeof window === "undefined") return [];
   try {
-    const key = uid ? keys(uid).chat : LEGACY_KEYS.chat;
-    const raw = localStorage.getItem(key);
+    const raw = localStorage.getItem(chatKey(uid, date));
     return raw ? (JSON.parse(raw) as ChatMessage[]) : [];
   } catch {
     return [];
   }
 }
 
-export function appendChatMessage(msg: ChatMessage, uid?: string): void {
-  const history = getChatHistory(uid);
+export function appendChatMessage(msg: ChatMessage, uid?: string, date?: string): void {
+  const history = getChatHistory(uid, date);
   history.push(msg);
-  const trimmed = history.slice(-100);
-  const key = uid ? keys(uid).chat : LEGACY_KEYS.chat;
-  localStorage.setItem(key, JSON.stringify(trimmed));
+  localStorage.setItem(chatKey(uid, date), JSON.stringify(history.slice(-100)));
 }
 
-export function saveChatHistory(messages: ChatMessage[], uid?: string): void {
-  const trimmed = messages.slice(-100);
-  const key = uid ? keys(uid).chat : LEGACY_KEYS.chat;
-  localStorage.setItem(key, JSON.stringify(trimmed));
+export function saveChatHistory(messages: ChatMessage[], uid?: string, date?: string): void {
+  localStorage.setItem(chatKey(uid, date), JSON.stringify(messages.slice(-100)));
 }
 
-export function clearChatHistory(uid?: string): void {
-  const key = uid ? keys(uid).chat : LEGACY_KEYS.chat;
-  localStorage.removeItem(key);
+export function clearChatHistory(uid?: string, date?: string): void {
+  localStorage.removeItem(chatKey(uid, date));
+}
+
+export function getAvailableChatDates(uid?: string): string[] {
+  if (typeof window === "undefined") return [];
+  const prefix = uid ? `arc_chat_${uid}_` : "arc_chat_history_";
+  const dates: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k?.startsWith(prefix)) {
+      const date = k.slice(prefix.length);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        const msgs = getChatHistory(uid, date);
+        if (msgs.length > 0) dates.push(date);
+      }
+    }
+  }
+  return dates.sort().reverse();
 }
 
 // ─── Consent ─────────────────────────────────────────────────────────────────
@@ -165,8 +182,23 @@ export function clearAllData(uid?: string): void {
   if (uid) {
     const k = keys(uid);
     Object.values(k).forEach((key) => localStorage.removeItem(key));
+    // Clear all date-scoped chat keys for this uid
+    const chatPrefix = `arc_chat_${uid}_`;
+    const toRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(chatPrefix)) toRemove.push(key);
+    }
+    toRemove.forEach((key) => localStorage.removeItem(key));
   } else {
     Object.values(LEGACY_KEYS).forEach((k) => localStorage.removeItem(k));
+    const chatPrefix = "arc_chat_history_";
+    const toRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(chatPrefix)) toRemove.push(key);
+    }
+    toRemove.forEach((key) => localStorage.removeItem(key));
   }
 }
 

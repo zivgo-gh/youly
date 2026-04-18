@@ -34,12 +34,15 @@ export interface UserProfile {
   createdAt: string;
 }
 
+export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
+
 export interface FoodEntry {
   id: string;
   timestamp: string; // ISO
   description: string;
   estimatedCalories: number;
   estimatedProtein: number;
+  meal?: MealType;
   corrected?: boolean;
 }
 

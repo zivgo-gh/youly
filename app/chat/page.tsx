@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChatInterface } from "@/components/chat/ChatInterface";
 import { getProfile, getChatHistory } from "@/lib/storage";
+import { todayStr } from "@/lib/calories";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import type { UserProfile, ChatMessage } from "@/lib/types";
 
@@ -27,7 +28,7 @@ export default function ChatPage() {
         return;
       }
       setProfile(p);
-      setMessages(getChatHistory(userId));
+      setMessages(getChatHistory(userId, todayStr()));
       setLoading(false);
     }
     init();
