@@ -109,7 +109,10 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
       const today = todayStr();
 
       if (name === "log_food") {
-        const date = (input.date as string) || today;
+        const aiDate = (input.date as string) || today;
+        // Clamp future dates to today — guards against UTC/local drift where
+        // the server-side AI thinks "today" is tomorrow for users in UTC+ timezones.
+        const date = aiDate > today ? today : aiDate;
         const time = (input.time as string) || new Date().toTimeString().slice(0, 5);
         const newEntry: FoodEntry = {
           id: uuid(),
@@ -173,7 +176,7 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
   const { messages, streamingText, isLoading, sendMessage, setMessages } =
     useStreamingChat({
       endpoint: "/api/chat",
-      getBody: (msgs) => ({ messages: msgs, profile, logs, clientTime: new Date().toISOString() }),
+      getBody: (msgs) => ({ messages: msgs, profile, logs, clientTime: new Date().toISOString(), clientDate: todayStr() }),
       onToolCall: handleToolCall,
       onDone: (finalMessages) => {
         saveChatHistory(finalMessages, uid, todayStr());

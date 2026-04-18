@@ -107,10 +107,11 @@ export const CHAT_TOOLS: Anthropic.Tool[] = [
 export function buildSystemPrompt(
   profile: UserProfile,
   logs: DailyLogs,
-  now: Date
+  now: Date,
+  clientDate?: string
 ): string {
   const avatar = AVATARS[profile.coachAvatar];
-  const today = todayStr();
+  const today = clientDate || todayStr();
   const todayLog = logs[today] ?? { entries: [], totalCalories: 0, totalProtein: 0 };
   const stats7 = weeklyStats(logs, 7);
   const agg14 = aggregateLast(logs, 14);
