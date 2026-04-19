@@ -111,7 +111,9 @@ export function buildSystemPrompt(
   profile: UserProfile,
   logs: DailyLogs,
   now: Date,
-  clientDate?: string
+  clientDate?: string,
+  clientHour?: number,
+  clientTimeDisplay?: string
 ): [string, string] {
   const avatar = AVATARS[profile.coachAvatar];
   const today = clientDate || todayStr();
@@ -120,9 +122,11 @@ export function buildSystemPrompt(
   const agg14 = aggregateLast(logs, 14);
   const loggedDays14 = agg14.filter((d) => d.logged);
 
-  const hour = now.getHours();
+  // Use client-provided local hour/time if available — server runs in UTC
+  const hour = clientHour ?? now.getHours();
   const timeOfDay =
     hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+  const currentTimeStr = clientTimeDisplay ?? now.toLocaleString("en-US", { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" });
 
   const weightHistory = agg14
     .filter((d) => d.weightLbs !== null)
@@ -201,7 +205,7 @@ LAST 7 DAYS SUMMARY:
 - Avg protein: ${stats7.avgProtein}g/day
 - Weight history: ${weightHistory || "no weigh-ins yet"}
 
-Current time: ${now.toLocaleString("en-US", { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "numeric" })}.`;
+Current time: ${currentTimeStr}.`;
 
   return [staticPart, dynamicPart];
 }

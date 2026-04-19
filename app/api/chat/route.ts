@@ -13,16 +13,20 @@ export async function POST(req: NextRequest) {
     logs,
     clientTime,
     clientDate,
+    clientHour,
+    clientTimeDisplay,
   }: {
     messages: ChatMessage[];
     profile: UserProfile;
     logs: DailyLogs;
     clientTime?: string;
     clientDate?: string;
+    clientHour?: number;
+    clientTimeDisplay?: string;
   } = body;
 
   const now = clientTime ? new Date(clientTime) : new Date();
-  const [staticPrompt, dynamicPrompt] = buildSystemPrompt(profile, logs, now, clientDate);
+  const [staticPrompt, dynamicPrompt] = buildSystemPrompt(profile, logs, now, clientDate, clientHour, clientTimeDisplay);
 
   // Cap history to last 20 messages to control token usage
   const anthropicMessages: Anthropic.MessageParam[] = messages.slice(-20).map((m) => ({

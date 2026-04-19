@@ -172,7 +172,18 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
   const { messages, streamingText, isLoading, sendMessage, setMessages } =
     useStreamingChat({
       endpoint: "/api/chat",
-      getBody: (msgs) => ({ messages: msgs, profile, logs, clientTime: new Date().toISOString(), clientDate: todayStr() }),
+      getBody: (msgs) => {
+        const now = new Date();
+        return {
+          messages: msgs,
+          profile,
+          logs,
+          clientTime: now.toISOString(),
+          clientDate: todayStr(),
+          clientHour: now.getHours(),
+          clientTimeDisplay: now.toLocaleString("en-US", { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" }),
+        };
+      },
       onToolCall: handleToolCall,
       onDone: (finalMessages) => {
         saveChatHistory(finalMessages, uid, todayStr());
