@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { useStreamingChat } from "@/hooks/useStreamingChat";
+import { seedTestData } from "@/lib/seed";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { MessageBubble } from "./MessageBubble";
 import { MacroSidebar } from "./MacroSidebar";
@@ -663,6 +664,17 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
                 className="w-full text-left py-3 px-4 rounded-2xl text-gray-700 font-medium hover:bg-gray-50 transition-colors"
               >
                 {copyStatus === "copied" ? "Copied! ✓" : "Copy chat transcript"}
+              </button>
+              <button
+                onClick={() => {
+                  setShowAccountMenu(false);
+                  const count = seedTestData(profile, uid);
+                  refreshLog();
+                  alert(`Seeded ${count} days of test data.`);
+                }}
+                className="w-full text-left py-3 px-4 rounded-2xl text-amber-600 text-sm font-medium hover:bg-amber-50 transition-colors"
+              >
+                Seed 2 weeks of test data
               </button>
               <button
                 onClick={() => {
