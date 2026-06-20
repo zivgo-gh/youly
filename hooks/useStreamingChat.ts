@@ -13,9 +13,14 @@ interface StreamEvent {
   profileJson?: string;
 }
 
+export interface ChatImage {
+  data: string; // base64, no data: prefix
+  mediaType: "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+}
+
 interface UseStreamingChatOptions {
   endpoint: string;
-  getBody: (messages: ChatMessage[]) => object;
+  getBody: (messages: ChatMessage[], image?: ChatImage) => object;
   onToolCall?: (name: string, input: Record<string, unknown>, id: string) => void;
   onProfileComplete?: (profileJson: string) => void;
   onRefresh?: () => void;
@@ -47,10 +52,10 @@ export function useStreamingChat({
   onRefreshRef.current = onRefresh;
 
   const sendMessage = useCallback(
-    async (userText: string) => {
+    async (userText: string, image?: ChatImage) => {
       const userMsg: ChatMessage = {
         role: "user",
-        content: userText,
+        content: userText.trim() || "📷 [nutrition label photo]",
         timestamp: new Date().toISOString(),
       };
 
@@ -65,7 +70,7 @@ export function useStreamingChat({
         const resp = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(getBody(newMessages)),
+          body: JSON.stringify(getBody(newMessages, image)),
           signal: abortRef.current.signal,
         });
 

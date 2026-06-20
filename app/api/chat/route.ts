@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
     clientDate,
     clientHour,
     clientTimeDisplay,
+    image,
   }: {
     messages: ChatMessage[];
     profile: UserProfile;
@@ -37,6 +38,7 @@ export async function POST(req: NextRequest) {
     clientDate?: string;
     clientHour?: number;
     clientTimeDisplay?: string;
+    image?: { data: string; mediaType: "image/jpeg" | "image/png" | "image/webp" | "image/gif" };
   } = body;
 
   const now = clientTime ? new Date(clientTime) : new Date();
@@ -69,8 +71,20 @@ export async function POST(req: NextRequest) {
   // Cap history to last 20 messages to control token usage
   const anthropicMessages: Anthropic.MessageParam[] = messages.slice(-20).map((m) => ({
     role: m.role,
-    content: m.content,
+    content: m.content as string | Anthropic.ContentBlockParam[],
   }));
+
+  // Attach a nutrition-label photo (if any) to the current (last user) turn.
+  if (image?.data && anthropicMessages.length > 0) {
+    const last = anthropicMessages[anthropicMessages.length - 1];
+    if (last.role === "user") {
+      const caption = typeof last.content === "string" ? last.content : "";
+      last.content = [
+        { type: "image", source: { type: "base64", media_type: image.mediaType, data: image.data } },
+        { type: "text", text: caption || "Here's a nutrition label — please read it and log it." },
+      ];
+    }
+  }
 
   const stream = new ReadableStream({
     async start(controller) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useState, useMemo } from "react";
-import { useStreamingChat } from "@/hooks/useStreamingChat";
+import { useStreamingChat, type ChatImage } from "@/hooks/useStreamingChat";
 import { seedTestData } from "@/lib/seed";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { MessageBubble } from "./MessageBubble";
@@ -40,6 +40,34 @@ function formatBannerDate(dateStr: string): string {
   return new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 }
 
+// Downscale a label photo to a legible-but-small JPEG so the payload + vision tokens stay reasonable.
+async function fileToResizedImage(file: File): Promise<ChatImage> {
+  const dataUrl: string = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("read failed"));
+    reader.readAsDataURL(file);
+  });
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = () => reject(new Error("decode failed"));
+    im.src = dataUrl;
+  });
+  const maxEdge = 1280; // enough to keep small label text readable
+  const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
+  const w = Math.max(1, Math.round(img.width * scale));
+  const h = Math.max(1, Math.round(img.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return { data: dataUrl.split(",")[1] ?? "", mediaType: "image/jpeg" };
+  ctx.drawImage(img, 0, 0, w, h);
+  const out = canvas.toDataURL("image/jpeg", 0.82);
+  return { data: out.split(",")[1] ?? "", mediaType: "image/jpeg" };
+}
+
 interface Props {
   profile: UserProfile;
   initialMessages: ChatMessage[];
@@ -71,6 +99,7 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied">("idle");
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const avatar = AVATARS[profile.coachAvatar];
 
   const isViewingToday = viewDate === todayStr();
@@ -141,7 +170,7 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
   const { messages, streamingText, isLoading, sendMessage, setMessages } =
     useStreamingChat({
       endpoint: "/api/chat",
-      getBody: (msgs) => {
+      getBody: (msgs, image) => {
         const now = new Date();
         return {
           messages: msgs,
@@ -151,6 +180,7 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
           clientDate: todayStr(),
           clientHour: now.getHours(),
           clientTimeDisplay: now.toLocaleString("en-US", { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" }),
+          image,
         };
       },
       onToolCall: handleToolCall,
@@ -207,6 +237,21 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
       setInput("");
       setInterimText("");
       await sendMessage(trimmed);
+    },
+    [isLoading, sendMessage]
+  );
+
+  const handlePhoto = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = ""; // allow picking the same file again
+      if (!file || isLoading) return;
+      try {
+        const image = await fileToResizedImage(file);
+        await sendMessage("", image);
+      } catch {
+        alert("Couldn't read that image. Try another photo.");
+      }
     },
     [isLoading, sendMessage]
   );
@@ -585,7 +630,24 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
                 )}
               </button>
 
-              <div className="w-11" />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading}
+                aria-label="Snap a nutrition label"
+                className="w-11 h-11 rounded-full flex items-center justify-center bg-gray-100 text-gray-400 hover:bg-gray-200 disabled:opacity-40 transition-colors"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M9 2 7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" />
+                </svg>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handlePhoto}
+                className="hidden"
+              />
             </div>
           </div>
         )}
