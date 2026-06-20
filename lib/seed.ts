@@ -1,5 +1,5 @@
 import { v4 as uuid } from "uuid";
-import { getAllLogs, addFoodEntry, logWeight } from "./storage";
+import { loadLogs, addFoodEntryDb, logWeightDb } from "./db";
 import type { UserProfile, FoodEntry, MealType } from "./types";
 
 const BREAKFAST = [
@@ -42,8 +42,9 @@ function localDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export function seedTestData(profile: UserProfile, uid?: string): number {
-  const allLogs = getAllLogs(uid);
+export async function seedTestData(profile: UserProfile, uid?: string): Promise<number> {
+  if (!uid) return 0; // DB-primary: seeding requires an authenticated user
+  const allLogs = await loadLogs(uid);
   const existingDates = Object.keys(allLogs).sort();
 
   // Anchor: day before the earliest existing log, or yesterday if no logs yet
@@ -66,7 +67,7 @@ export function seedTestData(profile: UserProfile, uid?: string): number {
     // Weight trends from currentWeight+3 lbs (oldest) down to currentWeight+0.2 (most recent)
     const progress = i / 13; // 1.0 = oldest, 0.0 = most recent
     const weightOffset = progress * 3 + (Math.random() - 0.5) * 0.7;
-    logWeight(dateStr, Math.round((profile.currentWeightLbs + weightOffset) * 10) / 10, uid);
+    await logWeightDb(uid, dateStr, Math.round((profile.currentWeightLbs + weightOffset) * 10) / 10);
 
     // 15% chance of no food logged that day (realistic)
     if (Math.random() < 0.15) { seeded++; continue; }
@@ -80,6 +81,7 @@ export function seedTestData(profile: UserProfile, uid?: string): number {
         estimatedCalories: food.estimatedCalories,
         estimatedProtein: food.estimatedProtein,
         meal,
+        source: "seed",
       });
     };
 
@@ -88,7 +90,7 @@ export function seedTestData(profile: UserProfile, uid?: string): number {
     addEntry(pick(DINNER), "dinner", 19);
     if (Math.random() > 0.5) addEntry(pick(SNACKS), "snack", 16);
 
-    for (const entry of entries) addFoodEntry(dateStr, entry, uid);
+    for (const entry of entries) await addFoodEntryDb(uid, dateStr, entry);
     seeded++;
   }
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChatInterface } from "@/components/chat/ChatInterface";
 import { getProfile, getChatHistory } from "@/lib/storage";
+import { loadProfile } from "@/lib/db";
 import { todayStr } from "@/lib/calories";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import type { UserProfile, ChatMessage } from "@/lib/types";
@@ -22,7 +23,7 @@ export default function ChatPage() {
       const userId = user?.id;
       setUid(userId);
 
-      const p = getProfile(userId);
+      const p = getProfile(userId) ?? (userId ? await loadProfile(userId) : null);
       if (!p || !p.onboardingComplete) {
         router.replace("/onboarding");
         return;

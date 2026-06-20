@@ -100,6 +100,78 @@ export const CHAT_TOOLS: Anthropic.Tool[] = [
       required: ["field", "value", "reason"],
     },
   },
+  {
+    name: "lookup_food",
+    description:
+      "Look up a food in the shared, cross-user nutrition database BEFORE estimating its calories/protein. Call this for any food you're about to log. If it returns found:true, use those exact calorie/protein values instead of estimating.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        name: { type: "string", description: "The food name, e.g. 'Hero bread slice' or 'cottage cheese'" },
+        unit: { type: "string", description: "Optional portion/unit, e.g. 'serving', 'slice', '100g'. Omit to match any." },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "confirm_food",
+    description:
+      "Save a food's calories/protein to the shared cross-user database. Call this ONLY when the user states an explicit label/package value (e.g. 'the box says 200 calories and 20g protein', 'Hero bread is 45 cal / 5g per slice'). NEVER call this with your own estimate — confirmed label values only.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        name: { type: "string", description: "The food name" },
+        unit: { type: "string", description: "Portion/unit the values are for, e.g. 'serving', 'slice', '100g'" },
+        calories: { type: "number", description: "Confirmed calories for that unit" },
+        protein: { type: "number", description: "Confirmed protein (g) for that unit" },
+      },
+      required: ["name", "unit", "calories", "protein"],
+    },
+  },
+  {
+    name: "save_meal",
+    description:
+      "Save a reusable meal the user can re-log later by name or number (e.g. 'log lunch #2'). Call this when the user asks to save/remember a meal AND has given it a name. Auto-numbered within its meal type.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        name: { type: "string", description: "The name the USER chose for the meal. Always use the user's own name — never invent one. If they haven't given a name yet, ask for one before calling this tool." },
+        meal: { type: "string", enum: ["breakfast", "lunch", "dinner", "snack"], description: "Meal category" },
+        items: {
+          type: "array",
+          description: "The foods in this meal",
+          items: {
+            type: "object",
+            properties: {
+              description: { type: "string" },
+              calories: { type: "number" },
+              protein: { type: "number" },
+            },
+            required: ["description", "calories", "protein"],
+          },
+        },
+      },
+      required: ["name", "meal", "items"],
+    },
+  },
+  {
+    name: "list_saved_meals",
+    description: "List the user's saved meals with their numbers and nutrition. Use to resolve which saved meal the user means.",
+    input_schema: { type: "object" as const, properties: {} },
+  },
+  {
+    name: "log_saved_meal",
+    description:
+      "Log a previously saved meal as today's entries. Use when the user says e.g. 'log lunch #2', 'I had meal #3', 'log my usual breakfast'. Expands the saved meal's items into real food entries.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        ref: { type: "string", description: "Which saved meal, e.g. 'lunch #2', 'meal #3', 'dinner #1', or the meal name" },
+        date: { type: "string", description: "Date in YYYY-MM-DD (defaults to today)" },
+      },
+      required: ["ref"],
+    },
+  },
 ];
 
 // ─── System prompt ────────────────────────────────────────────────────────────
@@ -113,7 +185,8 @@ export function buildSystemPrompt(
   now: Date,
   clientDate?: string,
   clientHour?: number,
-  clientTimeDisplay?: string
+  clientTimeDisplay?: string,
+  savedMealsSummary?: string
 ): [string, string] {
   const avatar = AVATARS[profile.coachAvatar];
   const today = clientDate || todayStr();
@@ -174,6 +247,7 @@ USER PROFILE:
 
 BEHAVIOR INSTRUCTIONS:
 - When the user mentions eating or drinking anything, call log_food with your best estimate. Don't ask for exact amounts — estimate based on typical portions.
+- ALWAYS break down what you logged: after logging, state each distinct item with its own calories and protein, then give the running day total. Do this every time, even when the user doesn't ask. Keep it conversational, never a table or bullet list — e.g. "Logged! The chicken came in around 370 calories and 62g protein, the two slices of bread about 90 and 10, and the cottage cheese 60 and 7. That puts you at 1,120 calories and 95g protein for the day." If it's a single item, just state that one item's calories and protein.
 - Meal category rules: if the user explicitly says "for breakfast / lunch / dinner / as a snack", use that. If you can confidently infer from the time (e.g. 8 AM → breakfast, 1 PM → lunch, 7 PM → dinner), use that and don't ask. If the time is ambiguous (e.g. mid-morning, mid-afternoon) or the meal is unclear, ask ONE short question first: "Was that breakfast, lunch, dinner, or a snack?" — then log after they answer. If their answer doesn't fit a category, say "Got it, I'll log that as a snack" and use snack.
 - Weight check-in: if today's weight is not yet logged (shown in the dynamic context below as "not logged"), bring it up naturally once — not at the very start of a conversation, but when there's a good moment (e.g. after logging food, or when the user checks in). Suggest morning weigh-ins — right after waking up, after using the bathroom, before eating. Mention that weight fluctuates a few pounds throughout the day due to water and food.
 - When you detect the user is correcting a previous entry ("that was yesterday", "I had less"), call correct_food_entry.
@@ -183,6 +257,15 @@ BEHAVIOR INSTRUCTIONS:
 - If you notice a meaningful pattern in how the user communicates or responds, call update_coach_style.
 - For food logging, always use today's date unless the user clearly indicates otherwise.
 - Always use lbs (pounds) for weight. Never use kilograms.
+
+SHARED FOOD DATABASE:
+- BEFORE estimating calories/protein for any food, call lookup_food with a clear, normalized name (e.g. "Hero bread slice", "cottage cheese serving"). If it returns found:true, use those exact values rather than your own estimate, and you can log immediately.
+- Call confirm_food ONLY when the user gives an explicit label/package value (e.g. "the box says 200 calories and 20g protein", "Hero bread is 45 cal and 5g per slice"). This saves it for everyone. NEVER call confirm_food with a value you estimated yourself.
+
+SAVED MEALS:
+- When the user asks to save or remember a meal ("save that as my lunch", "remember this dinner"), FIRST ask what they'd like to call it (a short name) — unless they already gave one in the same message. Never invent the name yourself.
+- Once you have the user's name, call save_meal with that name and the items. Then confirm using their name and the number you assigned (e.g. 'Saved "Power lunch" — that is your lunch #2').
+- When the user references a saved meal ("log lunch #2", "I had meal #3", "log my usual breakfast"), call log_saved_meal with that reference. The current saved meals are listed in the dynamic context below.
 
 SCOPE — critical:
 You are a weight loss and nutrition coach. You can discuss food, calories, protein, weight, body composition, exercise, sleep, stress, and habits as they relate to health and weight loss.
@@ -204,6 +287,8 @@ LAST 7 DAYS SUMMARY:
 - Avg calories: ${stats7.avgCalories} kcal/day (${loggedDays14.length > 0 ? stats7.daysLogged : 0} of 7 days logged)
 - Avg protein: ${stats7.avgProtein}g/day
 - Weight history: ${weightHistory || "no weigh-ins yet"}
+
+SAVED MEALS (for "log lunch #2" etc.): ${savedMealsSummary || "none yet"}
 
 Current time: ${currentTimeStr}.`;
 

@@ -202,36 +202,14 @@ export function clearAllData(uid?: string): void {
   }
 }
 
-// ─── Cloud sync (fire-and-forget) ─────────────────────────────────────────────
+// ─── Cloud (legacy backup tables) ─────────────────────────────────────────────
+// Data is now DB-primary via lib/db.ts (Supabase tables: profiles, food_entries,
+// weights, …). The old profile_backups / log_backups tables are kept ONLY so the
+// one-time migration (lib/migrate.ts) can read pre-migration data, and so reset can
+// clean them up. We no longer WRITE backups — those writers have been removed.
 
-export async function syncProfileToCloud(uid: string, profile: UserProfile): Promise<void> {
-  try {
-    const { createSupabaseBrowserClient } = await import("./supabase-browser");
-    const supabase = createSupabaseBrowserClient();
-    await supabase.from("profile_backups").upsert({
-      user_id: uid,
-      data: profile,
-      updated_at: new Date().toISOString(),
-    });
-  } catch {
-    // Sync failure is non-fatal — data is already saved locally
-  }
-}
-
-export async function syncLogsToCloud(uid: string, logs: DailyLogs): Promise<void> {
-  try {
-    const { createSupabaseBrowserClient } = await import("./supabase-browser");
-    const supabase = createSupabaseBrowserClient();
-    await supabase.from("log_backups").upsert({
-      user_id: uid,
-      data: logs,
-      updated_at: new Date().toISOString(),
-    });
-  } catch {
-    // Sync failure is non-fatal
-  }
-}
-
+// Reads the legacy backup tables into the local cache. Used as a migration fallback
+// source. Returns true if a profile backup existed.
 export async function restoreFromCloud(uid: string): Promise<boolean> {
   try {
     const { createSupabaseBrowserClient } = await import("./supabase-browser");

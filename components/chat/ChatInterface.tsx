@@ -12,15 +12,11 @@ import type { Trajectory } from "@/lib/calories";
 import { computeTrajectory, todayStr, daysBetween } from "@/lib/calories";
 import {
   getAllLogs,
-  addFoodEntry,
-  correctFoodEntry,
-  deleteFoodEntry,
-  logWeight,
   saveChatHistory,
   getChatHistory,
   getAvailableChatDates,
-  updateProfile,
 } from "@/lib/storage";
+import { loadLogs, correctFoodEntryDb, deleteFoodEntryDb } from "@/lib/db";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { v4 as uuid } from "uuid";
 import { AVATARS } from "@/lib/types";
@@ -87,87 +83,59 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
     });
   }, []);
 
-  const refreshLog = useCallback(() => {
-    const allLogs = getAllLogs(uid);
+  const refreshLog = useCallback(async () => {
+    // DB is the source of truth; fall back to the local cache if we have no uid.
+    const allLogs = uid ? await loadLogs(uid) : getAllLogs(uid);
     setLogs(allLogs);
     setTrajectory(computeTrajectory(allLogs, profile));
   }, [profile, uid]);
 
-  // Always-fresh ref so stale closures (onDone, onToolCall) call the latest refreshLog
+  // Always-fresh ref so stale closures (onDone, onRefresh) call the latest refreshLog.
+  // The cache-first paint is reconciled with the DB by the !isLoading effect below
+  // (which runs on mount since isLoading starts false).
   const refreshLogRef = useRef(refreshLog);
-  refreshLogRef.current = refreshLog;
+  useEffect(() => {
+    refreshLogRef.current = refreshLog;
+  }, [refreshLog]);
 
   // Auto-update trajectory whenever logs change
   useEffect(() => {
     setTrajectory(computeTrajectory(logs, profile));
   }, [logs, profile]);
 
+  // The server now executes all tools against the DB and signals a `refresh` when
+  // anything changed. Here we only do a lightweight optimistic macro bump for
+  // log_food so the strip moves instantly; refresh reconciles with DB truth.
   const handleToolCall = useCallback(
     (name: string, input: Record<string, unknown>) => {
+      if (name !== "log_food") return;
       const today = todayStr();
-
-      if (name === "log_food") {
-        const aiDate = (input.date as string) || today;
-        // Clamp future dates to today — guards against UTC/local drift where
-        // the server-side AI thinks "today" is tomorrow for users in UTC+ timezones.
-        const date = aiDate > today ? today : aiDate;
-        const time = (input.time as string) || new Date().toTimeString().slice(0, 5);
-        const newEntry: FoodEntry = {
-          id: uuid(),
-          timestamp: `${date}T${time}:00`,
-          description: input.description as string,
-          estimatedCalories: input.estimated_calories as number,
-          estimatedProtein: input.estimated_protein as number,
-          meal: input.meal as MealType | undefined,
+      const aiDate = (input.date as string) || today;
+      const date = aiDate > today ? today : aiDate;
+      const time = (input.time as string) || new Date().toTimeString().slice(0, 5);
+      const optimistic: FoodEntry = {
+        id: uuid(),
+        timestamp: `${date}T${time}:00`,
+        description: input.description as string,
+        estimatedCalories: (input.estimated_calories as number) ?? 0,
+        estimatedProtein: (input.estimated_protein as number) ?? 0,
+        meal: input.meal as MealType | undefined,
+      };
+      setLogs(prev => {
+        const day = prev[date] ?? { entries: [], totalCalories: 0, totalProtein: 0 };
+        const entries = [...day.entries, optimistic];
+        return {
+          ...prev,
+          [date]: {
+            ...day,
+            entries,
+            totalCalories: entries.reduce((s, e) => s + e.estimatedCalories, 0),
+            totalProtein: entries.reduce((s, e) => s + e.estimatedProtein, 0),
+          },
         };
-        addFoodEntry(date, newEntry, uid);
-        setLogs(prev => {
-          const day = prev[date] ?? { entries: [], totalCalories: 0, totalProtein: 0 };
-          const entries = [...day.entries, newEntry];
-          return { ...prev, [date]: { ...day, entries, totalCalories: entries.reduce((s, e) => s + e.estimatedCalories, 0), totalProtein: entries.reduce((s, e) => s + e.estimatedProtein, 0) } };
-        });
-      } else if (name === "correct_food_entry") {
-        const date = input.date as string;
-        const entryId = input.entry_id as string;
-        const updates = { description: input.updated_description as string | undefined, estimatedCalories: input.updated_calories as number | undefined, estimatedProtein: input.updated_protein as number | undefined };
-        correctFoodEntry(date, entryId, updates, uid);
-        setLogs(prev => {
-          const day = prev[date];
-          if (!day) return prev;
-          const entries = day.entries.map(e => e.id === entryId ? { ...e, ...updates, corrected: true } as FoodEntry : e);
-          return { ...prev, [date]: { ...day, entries, totalCalories: entries.reduce((s, e) => s + (e.estimatedCalories ?? 0), 0), totalProtein: entries.reduce((s, e) => s + (e.estimatedProtein ?? 0), 0) } };
-        });
-      } else if (name === "delete_food_entry") {
-        const date = input.date as string;
-        const entryId = input.entry_id as string;
-        deleteFoodEntry(date, entryId, uid);
-        setLogs(prev => {
-          const day = prev[date];
-          if (!day) return prev;
-          const entries = day.entries.filter(e => e.id !== entryId);
-          return { ...prev, [date]: { ...day, entries, totalCalories: entries.reduce((s, e) => s + e.estimatedCalories, 0), totalProtein: entries.reduce((s, e) => s + e.estimatedProtein, 0) } };
-        });
-      } else if (name === "log_weight") {
-        const date = (input.date as string) || today;
-        logWeight(date, input.weight_lbs as number, uid);
-        setLogs(prev => {
-          const day = prev[date] ?? { entries: [], totalCalories: 0, totalProtein: 0 };
-          return { ...prev, [date]: { ...day, weightLbs: input.weight_lbs as number } };
-        });
-      } else if (name === "update_coach_style") {
-        const field = input.field as string;
-        const value = input.value;
-        const current = profile.coachStyle;
-        if (field === "observations" && typeof value === "string") {
-          updateProfile({ coachStyle: { ...current, observations: [...current.observations, value] } }, uid);
-        } else if (field === "supportLevel" || field === "techDepth") {
-          updateProfile({ coachStyle: { ...current, [field]: value as number } }, uid);
-        } else if (field === "checkInStyle") {
-          updateProfile({ coachStyle: { ...current, checkInStyle: value as "brief" | "conversational" } }, uid);
-        }
-      }
+      });
     },
-    [profile, uid]
+    []
   );
 
   const { messages, streamingText, isLoading, sendMessage, setMessages } =
@@ -186,6 +154,7 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
         };
       },
       onToolCall: handleToolCall,
+      onRefresh: () => refreshLogRef.current(),
       onDone: (finalMessages) => {
         saveChatHistory(finalMessages, uid, todayStr());
         refreshLogRef.current();
@@ -283,14 +252,14 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
     });
   };
 
-  const saveEdit = () => {
-    if (!editingEntry) return;
-    correctFoodEntry(editingEntry.date, editingEntry.entry.id, {
+  const saveEdit = async () => {
+    if (!editingEntry || !uid) { setEditingEntry(null); return; }
+    await correctFoodEntryDb(uid, editingEntry.date, editingEntry.entry.id, {
       description: editForm.description || undefined,
       estimatedCalories: editForm.calories ? Number(editForm.calories) : undefined,
       estimatedProtein: editForm.protein ? Number(editForm.protein) : undefined,
-    }, uid);
-    refreshLog();
+    });
+    await refreshLog();
     setEditingEntry(null);
   };
 
@@ -306,9 +275,12 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
           </div>
         </div>
         <MacroSidebar profile={profile} todayLog={todayLog} trajectory={trajectory} />
-        <div className="mt-auto p-4 border-t border-gray-100">
+        <div className="mt-auto p-4 border-t border-gray-100 space-y-2">
           <a href="/progress" className="block text-center text-sm text-emerald-600 hover:underline">
             View progress →
+          </a>
+          <a href="/meals" className="block text-center text-sm text-emerald-600 hover:underline">
+            Saved meals →
           </a>
         </div>
       </aside>
@@ -450,7 +422,7 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
                             Edit
                           </button>
                           <button
-                            onClick={() => { deleteFoodEntry(viewDate, entry.id, uid); refreshLog(); }}
+                            onClick={async () => { if (uid) await deleteFoodEntryDb(uid, viewDate, entry.id); await refreshLog(); }}
                             className="text-[11px] text-red-400 font-medium px-2 py-0.5 rounded-lg bg-red-50"
                           >
                             ✕
@@ -659,6 +631,15 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
               <button
                 onClick={() => {
                   setShowAccountMenu(false);
+                  window.location.href = "/meals";
+                }}
+                className="w-full text-left py-3 px-4 rounded-2xl text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+              >
+                Manage saved meals
+              </button>
+              <button
+                onClick={() => {
+                  setShowAccountMenu(false);
                   copyChat();
                 }}
                 className="w-full text-left py-3 px-4 rounded-2xl text-gray-700 font-medium hover:bg-gray-50 transition-colors"
@@ -666,10 +647,10 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
                 {copyStatus === "copied" ? "Copied! ✓" : "Copy chat transcript"}
               </button>
               <button
-                onClick={() => {
+                onClick={async () => {
                   setShowAccountMenu(false);
-                  const count = seedTestData(profile, uid);
-                  refreshLog();
+                  const count = await seedTestData(profile, uid);
+                  await refreshLog();
                   alert(`Seeded ${count} days of test data.`);
                 }}
                 className="w-full text-left py-3 px-4 rounded-2xl text-amber-600 text-sm font-medium hover:bg-amber-50 transition-colors"

@@ -4,7 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import type { ChatMessage } from "@/lib/types";
 
 interface StreamEvent {
-  type: "text_delta" | "tool_call" | "done" | "error" | "profile_complete";
+  type: "text_delta" | "tool_call" | "done" | "error" | "profile_complete" | "refresh";
   text?: string;
   name?: string;
   input?: Record<string, unknown>;
@@ -18,6 +18,7 @@ interface UseStreamingChatOptions {
   getBody: (messages: ChatMessage[]) => object;
   onToolCall?: (name: string, input: Record<string, unknown>, id: string) => void;
   onProfileComplete?: (profileJson: string) => void;
+  onRefresh?: () => void;
   onDone?: (messages: ChatMessage[]) => void;
 }
 
@@ -26,6 +27,7 @@ export function useStreamingChat({
   getBody,
   onToolCall,
   onProfileComplete,
+  onRefresh,
   onDone,
 }: UseStreamingChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -41,6 +43,8 @@ export function useStreamingChat({
   onDoneRef.current = onDone;
   const onProfileCompleteRef = useRef(onProfileComplete);
   onProfileCompleteRef.current = onProfileComplete;
+  const onRefreshRef = useRef(onRefresh);
+  onRefreshRef.current = onRefresh;
 
   const sendMessage = useCallback(
     async (userText: string) => {
@@ -97,6 +101,8 @@ export function useStreamingChat({
                 onToolCallRef.current?.(event.name, event.input, event.id);
               } else if (event.type === "profile_complete" && event.profileJson) {
                 onProfileCompleteRef.current?.(event.profileJson);
+              } else if (event.type === "refresh") {
+                onRefreshRef.current?.();
               } else if (event.type === "done") {
                 const assistantMsg: ChatMessage = {
                   role: "assistant",

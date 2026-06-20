@@ -28,6 +28,10 @@ supabase-password.txt
 *password*.txt
 *secret*.txt
 
+# local-only: personal data export + dev server log (not for the repo)
+/backups
+.devlog.txt
+
 # debug
 npm-debug.log*
 yarn-debug.log*

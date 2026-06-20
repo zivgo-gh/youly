@@ -15,6 +15,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { getProfile, getAllLogs } from "@/lib/storage";
+import { loadProfile, loadLogs } from "@/lib/db";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { aggregateLast, computeTrajectory, weeklyStats, generateMilestones } from "@/lib/calories";
 import type { UserProfile, DailyLogs, Milestone } from "@/lib/types";
@@ -36,12 +37,12 @@ export default function ProgressPage() {
       const { data: { user } } = await supabase.auth.getUser();
       const uid = user?.id;
 
-      const p = getProfile(uid);
+      const p = getProfile(uid) ?? (uid ? await loadProfile(uid) : null);
       if (!p || !p.onboardingComplete) {
         router.replace("/onboarding");
         return;
       }
-      const allLogs = getAllLogs(uid);
+      const allLogs = uid ? await loadLogs(uid) : getAllLogs(uid);
       setProfile(p);
       setLogs(allLogs);
       setTrajectory(computeTrajectory(allLogs, p));

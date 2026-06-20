@@ -2,7 +2,9 @@
 
 import { useEffect } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { getProfile, restoreFromCloud } from "@/lib/storage";
+import { getProfile } from "@/lib/storage";
+import { loadProfile } from "@/lib/db";
+import { runMigration } from "@/lib/migrate";
 
 export default function Home() {
   useEffect(() => {
@@ -22,13 +24,13 @@ export default function Home() {
           return;
         }
 
-        // Authenticated — go straight to app (consent was handled pre-auth)
+        // Authenticated — migrate legacy data once, then resolve profile from DB
         const uid = user.id;
-        let profile = getProfile(uid);
+        await runMigration(uid);
 
+        let profile = getProfile(uid); // cache (migration writes through to it)
         if (!profile) {
-          await restoreFromCloud(uid);
-          profile = getProfile(uid);
+          profile = await loadProfile(uid); // DB source of truth (new device)
         }
 
         if (profile?.onboardingComplete) {

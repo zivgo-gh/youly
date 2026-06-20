@@ -36,6 +36,8 @@ export interface UserProfile {
 
 export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 
+export type EntrySource = "ai" | "manual" | "saved_meal" | "seed" | "migration";
+
 export interface FoodEntry {
   id: string;
   timestamp: string; // ISO
@@ -44,6 +46,35 @@ export interface FoodEntry {
   estimatedProtein: number;
   meal?: MealType;
   corrected?: boolean;
+  source?: EntrySource;
+}
+
+// ─── Saved meals ──────────────────────────────────────────────────────────────
+
+export interface SavedMealItem {
+  id?: string;
+  description: string;
+  calories: number;
+  protein: number;
+}
+
+export interface SavedMeal {
+  id: string;
+  name: string;
+  meal: MealType;
+  items: SavedMealItem[];
+  categoryNumber: number; // 1-based index within its meal type (lunch #1, #2…)
+  globalNumber: number;   // 1-based index across all saved meals (meal #N)
+}
+
+// ─── Shared food reference (cross-user) ───────────────────────────────────────
+
+export interface FoodReference {
+  normalizedName: string;
+  unit: string;
+  calories: number;
+  protein: number;
+  confirmations: number;
 }
 
 export interface DayLog {
