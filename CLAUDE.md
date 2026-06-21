@@ -27,18 +27,19 @@ No test suite exists yet.
 
 ## Architecture
 
-Arc (Youly) is a conversational AI weight loss coach. The data layer is **local-first**: all data lives in localStorage, keyed by user ID. Supabase is used only for authentication and optional cloud backup/restore.
+Arc (Youly) is a conversational AI weight loss coach. The data layer is **DB-primary** (Supabase): food entries, weight, profile, saved meals, and a shared cross-user food reference all live in normalized Postgres tables. localStorage is kept only as an **offline cache mirror** for instant first paint. **Chat history is the exception — it stays local** (`arc_chat_<uid>_<date>`), never synced.
 
 ### Auth model
 
-- **Supabase Auth** handles Google and Apple OAuth. Session cookie is maintained by `proxy.ts`.
-- **localStorage keys are scoped by uid**: `arc_profile_<uid>`, `arc_logs_<uid>`, `arc_chat_<uid>`. All storage functions in `lib/storage.ts` accept an optional `uid` param; without it they fall back to legacy unscoped keys.
-- **Cloud backup** (non-blocking): after saves, `syncProfileToCloud` / `syncLogsToCloud` push to Supabase `profile_backups` / `log_backups` tables. On fresh login to an empty device, `restoreFromCloud` pulls the backup.
+- **Supabase Auth** handles Google and Apple OAuth. Session cookie is maintained by `proxy.ts`. `uid = supabase.auth.getUser().id` on both client and server.
+- **DB tables** (see `supabase/schema.sql` + `supabase/rls.sql`): `profiles`, `food_entries`, `weights`, `saved_meals` (+`saved_meal_items`), `food_reference` (global, confirmed-values-only). RLS is the entire security boundary (anon key only): per-user tables scoped by `auth.uid()`; `food_reference` readable/writable by any authenticated user. Run both .sql files in the Supabase SQL editor to provision.
+- **Cache mirror**: `lib/db.ts` write-throughs to `arc_profile_<uid>` / `arc_logs_<uid>` so the synchronous getters in `lib/storage.ts` stay consistent for first paint. The legacy `profile_backups` / `log_backups` tables are deprecated (read once by the migration, no longer written).
+- **Migration**: `lib/migrate.ts` runs once per uid on login (`app/page.tsx`), idempotently importing legacy localStorage / `*_backups` data into the new tables (reuses `FoodEntry.id` as PK, `on conflict do nothing`).
 - **Consent** is tracked per-uid in localStorage (`arc_consent_<uid>`).
 
 ### Page routing (/)
 
-`app/page.tsx` checks: session → consent → local profile → cloud restore → routes to `/login`, `/consent`, `/onboarding`, or `/chat`.
+`app/page.tsx` checks: session → `runMigration(uid)` → profile (cache then `loadProfile` from DB) → routes to `/login`, `/onboarding`, or `/chat`.
 
 ### Required env vars
 
@@ -50,25 +51,29 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 
 ### Data flow
 
-1. User speaks (mic) or types → `useStreamingChat` hook POSTs to an API route
-2. API route calls Claude with a system prompt + tool definitions, streams back SSE events
-3. Hook parses SSE: `text_delta` events update the streaming UI; `tool_call` events are forwarded to the caller via `onToolCall` callback
-4. Caller (ChatInterface or OnboardingPage) executes tool calls against `lib/storage.ts` and refreshes local state
+1. User speaks (mic), types, or snaps a nutrition-label photo → `useStreamingChat` hook POSTs to `/api/chat` (image is downscaled client-side and sent as a vision block on that turn)
+2. The route authenticates the user, loads context, and runs the tool loop. **Tools are executed SERVER-SIDE** against the user's DB via `lib/chat-tools.ts` (`executeChatTool`) and return real results to the model
+3. SSE events: `text_delta` streams text; `tool_call` is forwarded for an optimistic `log_food` macro bump; a `refresh` event tells the client to refetch from the DB
+4. ChatInterface reconciles by calling `loadLogs(uid)` (DB → `DailyLogs`)
 
 ### Key files
 
-- **`lib/types.ts`** — all shared types (`UserProfile`, `DayLog`, `FoodEntry`, `ChatMessage`, `CoachStyle`, `AVATARS`)
-- **`lib/storage.ts`** — all localStorage reads/writes; never call `localStorage` directly elsewhere
-- **`lib/calories.ts`** — Mifflin-St Jeor calorie target calc, trajectory/goal-date projection, weekly aggregates
-- **`lib/ai.ts`** — Claude client, all 6 tool definitions (`log_food`, `correct_food_entry`, `delete_food_entry`, `log_weight`, `get_log`, `update_coach_style`), `buildSystemPrompt`, `buildOnboardingSystemPrompt`
-- **`hooks/useStreamingChat.ts`** — generic SSE streaming hook; shared by both onboarding and main chat
+- **`lib/types.ts`** — all shared types (`UserProfile`, `DayLog`, `FoodEntry`, `SavedMeal`, `FoodReference`, `ChatMessage`, `CoachStyle`, `AVATARS`)
+- **`lib/db.ts`** — async Supabase CRUD; assembles rows back into the `DailyLogs` shape; write-through cache. Browser-side ("use client")
+- **`lib/chat-tools.ts`** — server-side tool execution (`executeChatTool`) + shared `normalizeFoodName`; isomorphic, takes a SupabaseClient
+- **`lib/storage.ts`** — synchronous localStorage cache getters (first paint) + chat-history (local-only). Not the source of truth anymore
+- **`lib/migrate.ts`** — one-time idempotent legacy→DB migration
+- **`lib/calories.ts`** — Mifflin-St Jeor calorie target calc, trajectory/goal-date projection, weekly aggregates (consume the assembled `DailyLogs`)
+- **`lib/ai.ts`** — Claude client, tool definitions (`log_food`, `correct_food_entry`, `delete_food_entry`, `log_weight`, `get_log`, `update_coach_style`, `lookup_food`, `confirm_food`, `save_meal`, `list_saved_meals`, `log_saved_meal`), `buildSystemPrompt` (takes a saved-meals summary), `buildOnboardingSystemPrompt`
+- **`hooks/useStreamingChat.ts`** — generic SSE streaming hook; supports an optional image per turn and a `refresh` callback
 - **`hooks/useSpeechRecognition.ts`** — Web Speech API wrapper; mic button uses `toggle()`, auto-sends on `onFinalResult`
+- **`app/meals/page.tsx`** — manage saved meals (create/edit/delete)
 
 ### API routes
 
 All three routes are Node.js runtime (`export const runtime = "nodejs"`).
 
-- **`/api/chat`** — multi-turn tool loop: calls Claude, if `stop_reason === "tool_use"` sends tool results back and loops until a text response is produced. System prompt is prompt-cached (profile section).
+- **`/api/chat`** — authenticates via `createSupabaseServerClient` (401 if no session); multi-turn tool loop that **executes tools server-side** (`lib/chat-tools.ts`) and feeds real results back to Claude; emits a `refresh` SSE when data changed. Accepts an optional `image` (nutrition-label photo) attached to the last user turn. System prompt static part is prompt-cached; the saved-meals list lives in the dynamic (uncached) part.
 - **`/api/onboarding`** — single-turn; accepts `{ messages, avatar }` in the request body; parses `<profile>...</profile>` JSON block from Claude's response to signal onboarding completion. No tools.
 - **`/api/summary`** — single-turn, generates a weekly narrative; called on demand from the progress page.
 
