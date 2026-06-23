@@ -91,43 +91,51 @@ export function useStreamingChat({
 
           for (const line of lines) {
             if (!line.startsWith("data: ")) continue;
-            try {
-              const event: StreamEvent = JSON.parse(line.slice(6));
 
-              if (event.type === "text_delta" && event.text) {
-                accumulated += event.text;
-                setStreamingText(accumulated);
-              } else if (
-                event.type === "tool_call" &&
-                event.name &&
-                event.input &&
-                event.id
-              ) {
-                onToolCallRef.current?.(event.name, event.input, event.id);
-              } else if (event.type === "profile_complete" && event.profileJson) {
-                onProfileCompleteRef.current?.(event.profileJson);
-              } else if (event.type === "refresh") {
-                onRefreshRef.current?.();
-              } else if (event.type === "done") {
-                const assistantMsg: ChatMessage = {
-                  role: "assistant",
-                  content: accumulated.trim(),
-                  timestamp: new Date().toISOString(),
-                };
-                const finalMessages = [...newMessages, assistantMsg];
-                setMessages(finalMessages);
-                setStreamingText("");
-                onDoneRef.current?.(finalMessages);
-              } else if (event.type === "error") {
-                throw new Error(event.message ?? "Stream error");
-              }
+            // Only JSON.parse failures should be skipped here. Event handling
+            // (and the `error` event's throw) must escape to the outer catch —
+            // otherwise a server error event is silently swallowed and the user
+            // sees no reply, no error, nothing.
+            let event: StreamEvent;
+            try {
+              event = JSON.parse(line.slice(6));
             } catch {
-              // Skip malformed lines
+              continue; // malformed SSE line — skip
+            }
+
+            if (event.type === "text_delta" && event.text) {
+              accumulated += event.text;
+              setStreamingText(accumulated);
+            } else if (
+              event.type === "tool_call" &&
+              event.name &&
+              event.input &&
+              event.id
+            ) {
+              onToolCallRef.current?.(event.name, event.input, event.id);
+            } else if (event.type === "profile_complete" && event.profileJson) {
+              onProfileCompleteRef.current?.(event.profileJson);
+            } else if (event.type === "refresh") {
+              onRefreshRef.current?.();
+            } else if (event.type === "done") {
+              const assistantMsg: ChatMessage = {
+                role: "assistant",
+                content: accumulated.trim(),
+                timestamp: new Date().toISOString(),
+              };
+              const finalMessages = [...newMessages, assistantMsg];
+              setMessages(finalMessages);
+              setStreamingText("");
+              onDoneRef.current?.(finalMessages);
+            } else if (event.type === "error") {
+              throw new Error(event.message ?? "Stream error");
             }
           }
         }
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
+          // Surface the real cause for diagnosis — the friendly bubble below hides it from users.
+          console.error("[useStreamingChat] stream failed:", err);
           const errMsg: ChatMessage = {
             role: "assistant",
             content: "Sorry, something went wrong. Please try again.",
