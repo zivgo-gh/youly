@@ -180,23 +180,58 @@ function entryToRow(uid: string, date: string, e: FoodEntry) {
 
 // ─── Profile ──────────────────────────────────────────────────────────────────
 
+// A failed READ must never be mistaken for "this user has no profile" — that
+// mistake routes an existing user into onboarding and overwrites their real profile.
+export class ProfileLoadError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ProfileLoadError";
+  }
+}
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+// Returns the profile, or null ONLY when the row genuinely does not exist.
+// Throws ProfileLoadError if the read could not be completed (network/auth/RLS).
 export async function loadProfile(uid: string): Promise<UserProfile | null> {
   const supabase = createSupabaseBrowserClient();
-  const { data } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("user_id", uid)
-    .maybeSingle();
-  if (!data) return null;
-  const profile = rowToProfile(data as ProfileRow);
-  cacheProfile(uid, profile);
-  return profile;
+  let lastError = "";
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await sleep(400 * attempt);
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", uid)
+        .maybeSingle();
+      if (error) {
+        lastError = error.message;
+        continue; // transient? retry before concluding anything
+      }
+      if (!data) return null; // authoritative: no profile row for this uid
+      const profile = rowToProfile(data as ProfileRow);
+      cacheProfile(uid, profile);
+      return profile;
+    } catch (e) {
+      lastError = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  throw new ProfileLoadError(lastError || "profile read failed");
 }
 
 export async function saveProfileDb(uid: string, profile: UserProfile): Promise<void> {
   const supabase = createSupabaseBrowserClient();
-  await supabase.from("profiles").upsert(profileToRow(uid, profile), { onConflict: "user_id" });
+  const { error } = await supabase
+    .from("profiles")
+    .upsert(profileToRow(uid, profile), { onConflict: "user_id" });
   cacheProfile(uid, profile);
+  // Surface the failure — a silently-dropped write leaves the profile local-only,
+  // so it vanishes the moment localStorage is cleared.
+  if (error) throw new Error(`profile save failed: ${error.message}`);
 }
 
 // ─── Logs (food_entries + weights assembled into DailyLogs) ───────────────────

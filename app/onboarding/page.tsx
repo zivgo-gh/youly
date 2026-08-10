@@ -10,6 +10,7 @@ import { CoachPhoto } from "@/components/shared/CoachPhoto";
 import type { UserProfile, CoachAvatar } from "@/lib/types";
 import { saveProfile, clearAllData, deleteCloudBackups } from "@/lib/storage";
 import { saveProfileDb } from "@/lib/db";
+import { logsMigratedKey, profileMigratedKey } from "@/lib/migrate";
 import { calcTargets, predictGoalDate } from "@/lib/calories";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 
@@ -17,23 +18,53 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [selectedAvatar, setSelectedAvatar] = useState<CoachAvatar | null>(null);
   const [profileReady, setProfileReady] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const pendingProfileJson = useRef<string | null>(null);
   const [input, setInput] = useState("");
   const [interimText, setInterimText] = useState("");
   const [showInput, setShowInput] = useState(false);
   const [uid, setUid] = useState<string | undefined>(undefined);
+  const [email, setEmail] = useState<string | undefined>(undefined);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setUid(data.user.id);
+      if (data.user) {
+        setUid(data.user.id);
+        setEmail(data.user.email ?? undefined);
+      }
     });
   }, []);
 
-  const handleReset = async () => {
-    if (!confirm("Reset and start over?")) return;
-    clearAllData(uid);
+  // Signing in with the wrong Google account looks exactly like "the app reset" — an
+  // empty profile and a fresh coach picker. Make the account visible before onboarding.
+  const handleSwitchAccount = async () => {
+    if (!confirm("Sign out and choose a different account? Nothing is deleted.")) return;
     const supabase = createSupabaseBrowserClient();
+    await supabase.auth.signOut();
+    window.location.replace("/login");
+  };
+
+  const handleReset = async () => {
+    // This screen is reachable by accident (e.g. a profile that failed to load), so the
+    // reset has to spell out exactly what it destroys before it destroys it.
+    const supabase = createSupabaseBrowserClient();
+    let loggedDays = 0;
+    if (uid) {
+      const { count } = await supabase
+        .from("food_entries")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", uid);
+      loggedDays = count ?? 0;
+    }
+    const warning = loggedDays
+      ? `This permanently deletes ALL your data — ${loggedDays} logged food entries, your weights, saved meals and profile. This cannot be undone.\n\nAre you sure?`
+      : "This permanently deletes your profile and all logged data. This cannot be undone.\n\nAre you sure?";
+    if (!confirm(warning)) return;
+    if (loggedDays > 0 && !confirm(`Last chance — delete ${loggedDays} food entries forever?`)) return;
+
+    clearAllData(uid);
     if (uid) {
       await deleteCloudBackups(uid); // legacy backup tables
       await Promise.all([
@@ -43,7 +74,8 @@ export default function OnboardingPage() {
         supabase.from("saved_meals").delete().eq("user_id", uid),
         supabase.from("profiles").delete().eq("user_id", uid),
       ]);
-      localStorage.removeItem(`arc_migrated_${uid}`);
+      localStorage.removeItem(logsMigratedKey(uid));
+      localStorage.removeItem(profileMigratedKey(uid));
     }
     localStorage.removeItem("arc_intro_done");
     localStorage.removeItem("arc_consent_done");
@@ -54,6 +86,7 @@ export default function OnboardingPage() {
 
   const handleProfileComplete = useCallback(
     async (profileJson: string) => {
+      pendingProfileJson.current = profileJson;
       try {
         const raw = JSON.parse(profileJson);
         const dailyDeficit: number = raw.dailyDeficit ?? 500;
@@ -90,12 +123,18 @@ export default function OnboardingPage() {
 
         saveProfile(profile, uid); // local cache for instant first paint
         if (uid) {
-          await saveProfileDb(uid, profile); // DB-primary
-          localStorage.setItem(`arc_migrated_${uid}`, "1"); // fresh account — nothing to migrate
+          await saveProfileDb(uid, profile); // DB-primary — throws if it didn't persist
+          // fresh account — nothing to migrate
+          localStorage.setItem(logsMigratedKey(uid), "1");
+          localStorage.setItem(profileMigratedKey(uid), "1");
         }
+        setSaveError(null);
         setProfileReady(true);
       } catch (e) {
-        console.error("Failed to parse profile", e);
+        console.error("Failed to save profile", e);
+        setSaveError(
+          "We couldn't save your profile. Check your connection and try again — nothing else was lost."
+        );
       }
     },
     [uid]
@@ -178,6 +217,24 @@ export default function OnboardingPage() {
 
         {/* White card with avatar grid */}
         <div className="flex-1 bg-white rounded-t-3xl px-6 pt-8 pb-10 overflow-y-auto">
+          {email && (
+            <div className="mb-6 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3">
+              <p className="text-[13px] text-amber-900">
+                Setting up a new profile for <span className="font-semibold">{email}</span>.
+              </p>
+              <p className="text-[13px] text-amber-800 mt-1">
+                Already have a Youly profile? You may be signed in with a different account —{" "}
+                <button
+                  onClick={handleSwitchAccount}
+                  className="font-semibold underline underline-offset-2"
+                >
+                  switch account
+                </button>
+                .
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             {(Object.entries(AVATARS) as [CoachAvatar, typeof AVATARS[CoachAvatar]][]).map(
               ([key, avatar]) => (
@@ -252,7 +309,20 @@ export default function OnboardingPage() {
 
       {/* Input — or CTA when profile is ready */}
       <div className="border-t border-gray-100 bg-white px-4 pt-3 pb-6">
-        {profileReady ? (
+        {saveError ? (
+          <div className="flex flex-col items-center gap-3 py-2">
+            <p className="text-sm text-red-500 text-center max-w-sm">{saveError}</p>
+            <button
+              onClick={() => {
+                const json = pendingProfileJson.current;
+                if (json) handleProfileComplete(json);
+              }}
+              className="w-full max-w-sm py-4 rounded-2xl bg-emerald-500 text-white font-bold text-lg shadow-lg active:scale-95 transition-transform"
+            >
+              Try saving again
+            </button>
+          </div>
+        ) : profileReady ? (
           <div className="flex flex-col items-center gap-3 py-2">
             <p className="text-sm text-gray-400">Your profile is all set!</p>
             <button

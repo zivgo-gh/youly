@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { getProfile } from "@/lib/storage";
-import { loadProfile, getSavedMeals, createSavedMeal, updateSavedMeal, deleteSavedMeal } from "@/lib/db";
+import { resolveProfile } from "@/lib/resolve-profile";
+import { LoadFailure } from "@/components/shared/LoadFailure";
+import { getSavedMeals, createSavedMeal, updateSavedMeal, deleteSavedMeal } from "@/lib/db";
 import type { MealType, SavedMeal, SavedMealItem } from "@/lib/types";
 
 const MEAL_ORDER: MealType[] = ["breakfast", "lunch", "dinner", "snack"];
@@ -39,6 +39,7 @@ export default function MealsPage() {
   const router = useRouter();
   const [uid, setUid] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const [meals, setMeals] = useState<SavedMeal[]>([]);
   const [form, setForm] = useState<MealForm | null>(null);
   const [saving, setSaving] = useState(false);
@@ -49,20 +50,21 @@ export default function MealsPage() {
 
   useEffect(() => {
     async function init() {
-      const supabase = createSupabaseBrowserClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      const userId = user?.id;
-      if (!userId) {
+      const r = await resolveProfile();
+      if (r.status === "error") {
+        setFailed(true);
+        return;
+      }
+      if (r.status === "signed-out") {
         router.replace("/login");
         return;
       }
-      const p = getProfile(userId) ?? (await loadProfile(userId));
-      if (!p || !p.onboardingComplete) {
+      if (r.status === "needs-onboarding") {
         router.replace("/onboarding");
         return;
       }
-      setUid(userId);
-      await refresh(userId);
+      setUid(r.uid);
+      await refresh(r.uid);
       setLoading(false);
     }
     init();
@@ -108,6 +110,8 @@ export default function MealsPage() {
     await deleteSavedMeal(uid, id);
     await refresh(uid);
   };
+
+  if (failed) return <LoadFailure />;
 
   if (loading) {
     return (

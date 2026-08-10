@@ -14,9 +14,9 @@ import {
   Bar,
   ReferenceLine,
 } from "recharts";
-import { getProfile, getAllLogs } from "@/lib/storage";
-import { loadProfile, loadLogs } from "@/lib/db";
-import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { loadLogs } from "@/lib/db";
+import { resolveProfile } from "@/lib/resolve-profile";
+import { LoadFailure } from "@/components/shared/LoadFailure";
 import { aggregateLast, computeTrajectory, weeklyStats, generateMilestones } from "@/lib/calories";
 import type { UserProfile, DailyLogs, Milestone } from "@/lib/types";
 import type { Trajectory } from "@/lib/calories";
@@ -30,19 +30,25 @@ export default function ProgressPage() {
   const [summary, setSummary] = useState<string>("");
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     async function init() {
-      const supabase = createSupabaseBrowserClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      const uid = user?.id;
-
-      const p = getProfile(uid) ?? (uid ? await loadProfile(uid) : null);
-      if (!p || !p.onboardingComplete) {
+      const r = await resolveProfile();
+      if (r.status === "error") {
+        setFailed(true);
+        return;
+      }
+      if (r.status === "signed-out") {
+        router.replace("/login");
+        return;
+      }
+      if (r.status === "needs-onboarding") {
         router.replace("/onboarding");
         return;
       }
-      const allLogs = uid ? await loadLogs(uid) : getAllLogs(uid);
+      const p = r.profile;
+      const allLogs = await loadLogs(r.uid);
       setProfile(p);
       setLogs(allLogs);
       setTrajectory(computeTrajectory(allLogs, p));
@@ -89,6 +95,8 @@ export default function ProgressPage() {
       setSummaryLoading(false);
     }
   };
+
+  if (failed) return <LoadFailure />;
 
   if (loading || !profile || !trajectory) {
     return (

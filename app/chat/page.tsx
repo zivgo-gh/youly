@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChatInterface } from "@/components/chat/ChatInterface";
-import { getProfile, getChatHistory } from "@/lib/storage";
-import { loadProfile } from "@/lib/db";
+import { LoadFailure } from "@/components/shared/LoadFailure";
+import { getChatHistory } from "@/lib/storage";
+import { resolveProfile } from "@/lib/resolve-profile";
 import { todayStr } from "@/lib/calories";
-import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import type { UserProfile, ChatMessage } from "@/lib/types";
 
 export default function ChatPage() {
@@ -15,25 +15,32 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [uid, setUid] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     async function init() {
-      const supabase = createSupabaseBrowserClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      const userId = user?.id;
-      setUid(userId);
-
-      const p = getProfile(userId) ?? (userId ? await loadProfile(userId) : null);
-      if (!p || !p.onboardingComplete) {
+      const r = await resolveProfile();
+      if (r.status === "error") {
+        setFailed(true);
+        return;
+      }
+      if (r.status === "signed-out") {
+        router.replace("/login");
+        return;
+      }
+      if (r.status === "needs-onboarding") {
         router.replace("/onboarding");
         return;
       }
-      setProfile(p);
-      setMessages(getChatHistory(userId, todayStr()));
+      setUid(r.uid);
+      setProfile(r.profile);
+      setMessages(getChatHistory(r.uid, todayStr()));
       setLoading(false);
     }
     init();
   }, [router]);
+
+  if (failed) return <LoadFailure />;
 
   if (loading || !profile) {
     return (
