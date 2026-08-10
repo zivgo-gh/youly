@@ -27,12 +27,14 @@ No test suite exists yet.
 
 ## Architecture
 
-Arc (Youly) is a conversational AI weight loss coach. The data layer is **DB-primary** (Supabase): food entries, weight, profile, saved meals, and a shared cross-user food reference all live in normalized Postgres tables. localStorage is kept only as an **offline cache mirror** for instant first paint. **Chat history is the exception — it stays local** (`arc_chat_<uid>_<date>`), never synced.
+Arc (Youly) is a conversational AI weight loss coach. The data layer is **DB-primary** (Supabase): food entries, weight, profile, saved meals, chat history, and a shared cross-user food reference all live in normalized Postgres tables. localStorage is kept only as an **offline cache mirror** for instant first paint.
+
+Chat history used to be local-only. It isn't anymore: Safari caps script-writable storage at 7 days, so any week-long gap silently erased every conversation. It now lives in `chat_messages`, keyed `(user_id, local_date, position)`, with `arc_chat_<uid>_<date>` demoted to a mirror. See `lib/chat-db.ts`.
 
 ### Auth model
 
 - **Supabase Auth** handles Google and Apple OAuth. Session cookie is maintained by `proxy.ts`. `uid = supabase.auth.getUser().id` on both client and server.
-- **DB tables** (see `supabase/schema.sql` + `supabase/rls.sql`): `profiles`, `food_entries`, `weights`, `saved_meals` (+`saved_meal_items`), `food_reference` (global, confirmed-values-only). RLS is the entire security boundary (anon key only): per-user tables scoped by `auth.uid()`; `food_reference` readable/writable by any authenticated user. Run both .sql files in the Supabase SQL editor to provision.
+- **DB tables** (see `supabase/schema.sql` + `supabase/rls.sql`): `profiles`, `food_entries`, `weights`, `saved_meals` (+`saved_meal_items`), `chat_messages`, `food_reference` (global, confirmed-values-only). Deltas against an already-provisioned DB live in `supabase/migrations/`. RLS is the entire security boundary (anon key only): per-user tables scoped by `auth.uid()`; `food_reference` readable/writable by any authenticated user. Run both .sql files in the Supabase SQL editor to provision.
 - **Cache mirror**: `lib/db.ts` write-throughs to `arc_profile_<uid>` / `arc_logs_<uid>` so the synchronous getters in `lib/storage.ts` stay consistent for first paint. The legacy `profile_backups` / `log_backups` tables are deprecated (read once by the migration, no longer written).
 - **Migration**: `lib/migrate.ts` runs once per uid on login (`app/page.tsx`), idempotently importing legacy localStorage / `*_backups` data into the new tables (reuses `FoodEntry.id` as PK, `on conflict do nothing`).
 - **Consent** is tracked per-uid in localStorage (`arc_consent_<uid>`).
@@ -61,7 +63,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 - **`lib/types.ts`** — all shared types (`UserProfile`, `DayLog`, `FoodEntry`, `SavedMeal`, `FoodReference`, `ChatMessage`, `CoachStyle`, `AVATARS`)
 - **`lib/db.ts`** — async Supabase CRUD; assembles rows back into the `DailyLogs` shape; write-through cache. Browser-side ("use client")
 - **`lib/chat-tools.ts`** — server-side tool execution (`executeChatTool`) + shared `normalizeFoodName`; isomorphic, takes a SupabaseClient
-- **`lib/storage.ts`** — synchronous localStorage cache getters (first paint) + chat-history (local-only). Not the source of truth anymore
+- **`lib/storage.ts`** — synchronous localStorage cache getters (first paint), including the chat mirror. Not the source of truth anymore
+- **`lib/chat-db.ts`** — chat history CRUD against `chat_messages`; a save re-upserts the whole day (idempotent, so a failed write self-heals on the next turn) and trims any leftover tail
+- **`lib/resolve-profile.ts`** — the one place that decides ok / signed-out / needs-onboarding / **error**. A profile that can't be *read* must never be treated as a profile that doesn't *exist* — that routes real users into onboarding and overwrites their data
 - **`lib/migrate.ts`** — one-time idempotent legacy→DB migration
 - **`lib/calories.ts`** — Mifflin-St Jeor calorie target calc, trajectory/goal-date projection, weekly aggregates (consume the assembled `DailyLogs`)
 - **`lib/ai.ts`** — Claude client, tool definitions (`log_food`, `correct_food_entry`, `delete_food_entry`, `log_weight`, `get_log`, `update_coach_style`, `lookup_food`, `confirm_food`, `save_meal`, `list_saved_meals`, `log_saved_meal`), `buildSystemPrompt` (takes a saved-meals summary), `buildOnboardingSystemPrompt`

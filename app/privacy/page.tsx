@@ -4,13 +4,13 @@ export default function PrivacyPage() {
       <div className="max-w-2xl mx-auto px-6 py-12">
         <a href="/chat" className="text-sm text-emerald-600 font-medium mb-8 inline-block">← Back</a>
         <h1 className="text-2xl font-bold text-gray-900 mb-1">Privacy Policy</h1>
-        <p className="text-sm text-gray-400 mb-8">Last updated: April 2025</p>
+        <p className="text-sm text-gray-400 mb-8">Last updated: August 2026</p>
         <div className="space-y-6 text-sm text-gray-600 leading-relaxed">
           <section>
             <h2 className="font-semibold text-gray-800 mb-2">1. Information We Collect</h2>
             <p><strong>Identity:</strong> When you sign in with Google, we receive your name and email to create your account.</p>
-            <p className="mt-2"><strong>Health data (local-only by default):</strong> Food logs, weight, targets, and conversation history are stored on your device only.</p>
-            <p className="mt-2"><strong>Optional cloud backup:</strong> Your profile and logs are encrypted and stored on our servers solely to restore your data on a new device.</p>
+            <p className="mt-2"><strong>Health data:</strong> Food logs, weight, targets, saved meals, and conversation history are stored in your Youly account on our hosted database, so they are available on any device you sign in from. A copy is also cached on your device for offline access.</p>
+            <p className="mt-2"><strong>Isolation:</strong> Your records are readable and writable only by your signed-in account, enforced by per-row access controls at the database level, and transmitted over encrypted connections.</p>
           </section>
           <section>
             <h2 className="font-semibold text-gray-800 mb-2">2. How We Use Your Information</h2>
@@ -22,7 +22,7 @@ export default function PrivacyPage() {
           </section>
           <section>
             <h2 className="font-semibold text-gray-800 mb-2">4. Data Deletion</h2>
-            <p>Local data stays on your device until you clear it. To request complete deletion of your account and any cloud backup, contact us at support@youly.app.</p>
+            <p>Resetting the app permanently deletes your profile, food logs, weights, saved meals, and conversation history from both your device and our database. To request complete deletion of your account, contact us at support@youly.app.</p>
           </section>
           <section>
             <h2 className="font-semibold text-gray-800 mb-2">5. Contact</h2>

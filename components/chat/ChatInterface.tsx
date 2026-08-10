@@ -10,12 +10,8 @@ import { FirstRunTour } from "./FirstRunTour";
 import type { UserProfile, DailyLogs, ChatMessage, FoodEntry, MealType } from "@/lib/types";
 import type { Trajectory } from "@/lib/calories";
 import { computeTrajectory, todayStr, daysBetween } from "@/lib/calories";
-import {
-  getAllLogs,
-  saveChatHistory,
-  getChatHistory,
-  getAvailableChatDates,
-} from "@/lib/storage";
+import { getAllLogs, saveChatHistory, getChatHistory } from "@/lib/storage";
+import { loadChatHistoryDb, loadChatDatesDb, saveChatHistoryDb } from "@/lib/chat-db";
 import { loadLogs, correctFoodEntryDb, deleteFoodEntryDb } from "@/lib/db";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { v4 as uuid } from "uuid";
@@ -93,6 +89,8 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
   const [userEmail, setUserEmail] = useState<string>("");
   const [viewDate, setViewDate] = useState(todayStr());
   const [pastMessages, setPastMessages] = useState<ChatMessage[]>([]);
+  // Days with stored history. Sourced from the DB so it survives a localStorage wipe.
+  const [chatDates, setChatDates] = useState<string[]>([]);
   const [showFoodLog, setShowFoodLog] = useState(false);
   const [editingEntry, setEditingEntry] = useState<{ date: string; entry: FoodEntry } | null>(null);
   const [editForm, setEditForm] = useState({ description: "", calories: "", protein: "" });
@@ -186,7 +184,15 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
       onToolCall: handleToolCall,
       onRefresh: () => refreshLogRef.current(),
       onDone: (finalMessages) => {
-        saveChatHistory(finalMessages, uid, todayStr());
+        const today = todayStr();
+        if (uid) {
+          // Writes the local mirror first, then persists the day to the DB. A failed
+          // write self-heals: the next turn re-sends the whole day.
+          saveChatHistoryDb(uid, today, finalMessages);
+        } else {
+          saveChatHistory(finalMessages, uid, today);
+        }
+        setChatDates((prev) => (prev.includes(today) ? prev : [today, ...prev].sort().reverse()));
         refreshLogRef.current();
       },
     });
@@ -200,19 +206,37 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
   }, [isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!isViewingToday) {
-      setPastMessages(getChatHistory(uid, viewDate));
-    }
+    if (isViewingToday) return;
+    let cancelled = false;
+    // Paint the local mirror immediately, then reconcile with the DB.
+    setPastMessages(getChatHistory(uid, viewDate));
+    if (!uid) return;
+    loadChatHistoryDb(uid, viewDate).then((msgs) => {
+      if (!cancelled) setPastMessages(msgs);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [viewDate, isViewingToday, uid]);
 
+  useEffect(() => {
+    if (!uid) return;
+    let cancelled = false;
+    loadChatDatesDb(uid).then((dates) => {
+      if (!cancelled) setChatDates(dates);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [uid]);
+
   const availableDates = useMemo(() => {
-    const saved = getAvailableChatDates(uid);
     const today = todayStr();
-    if (!saved.includes(today) && messages.length > 0) {
-      return [today, ...saved].sort().reverse();
+    if (!chatDates.includes(today) && messages.length > 0) {
+      return [today, ...chatDates].sort().reverse();
     }
-    return saved;
-  }, [uid, messages.length]);
+    return chatDates;
+  }, [chatDates, messages.length]);
 
   const viewIdx = availableDates.indexOf(viewDate);
   const prevDate = viewIdx < availableDates.length - 1 ? availableDates[viewIdx + 1] : null;

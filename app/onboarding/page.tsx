@@ -10,7 +10,7 @@ import { CoachPhoto } from "@/components/shared/CoachPhoto";
 import type { UserProfile, CoachAvatar } from "@/lib/types";
 import { saveProfile, clearAllData, deleteCloudBackups } from "@/lib/storage";
 import { saveProfileDb } from "@/lib/db";
-import { logsMigratedKey, profileMigratedKey } from "@/lib/migrate";
+import { chatMigratedKey, logsMigratedKey, profileMigratedKey } from "@/lib/migrate";
 import { calcTargets, predictGoalDate } from "@/lib/calories";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 
@@ -72,10 +72,12 @@ export default function OnboardingPage() {
         supabase.from("weights").delete().eq("user_id", uid),
         supabase.from("saved_meal_items").delete().eq("user_id", uid),
         supabase.from("saved_meals").delete().eq("user_id", uid),
+        supabase.from("chat_messages").delete().eq("user_id", uid),
         supabase.from("profiles").delete().eq("user_id", uid),
       ]);
       localStorage.removeItem(logsMigratedKey(uid));
       localStorage.removeItem(profileMigratedKey(uid));
+      localStorage.removeItem(chatMigratedKey(uid));
     }
     localStorage.removeItem("arc_intro_done");
     localStorage.removeItem("arc_consent_done");
@@ -127,6 +129,7 @@ export default function OnboardingPage() {
           // fresh account — nothing to migrate
           localStorage.setItem(logsMigratedKey(uid), "1");
           localStorage.setItem(profileMigratedKey(uid), "1");
+          localStorage.setItem(chatMigratedKey(uid), "1");
         }
         setSaveError(null);
         setProfileReady(true);

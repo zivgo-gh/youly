@@ -4,7 +4,7 @@ export default function TermsPage() {
       <div className="max-w-2xl mx-auto px-6 py-12">
         <a href="/chat" className="text-sm text-emerald-600 font-medium mb-8 inline-block">← Back</a>
         <h1 className="text-2xl font-bold text-gray-900 mb-1">Terms of Use</h1>
-        <p className="text-sm text-gray-400 mb-8">Last updated: April 2025</p>
+        <p className="text-sm text-gray-400 mb-8">Last updated: August 2026</p>
         <div className="space-y-6 text-sm text-gray-600 leading-relaxed">
           <p>By using Youly (&quot;the App&quot;), you agree to these Terms of Use.</p>
           <section>
@@ -17,7 +17,7 @@ export default function TermsPage() {
           </section>
           <section>
             <h2 className="font-semibold text-gray-800 mb-2">3. Account and Data</h2>
-            <p>All health data you enter is stored locally on your device. You may optionally enable cloud backup, in which case an encrypted copy is stored securely solely to enable cross-device restore. We do not access, analyze, or share this data for any other purpose.</p>
+            <p>Health data you enter is stored in your Youly account on our hosted database so that it syncs across your devices, with a copy cached on your device for offline access. Your data is isolated from other users&apos; data by per-row access controls and transmitted over encrypted connections. We do not access, analyze, or share it for any purpose other than providing coaching to you.</p>
           </section>
           <section>
             <h2 className="font-semibold text-gray-800 mb-2">4. Limitation of Liability</h2>

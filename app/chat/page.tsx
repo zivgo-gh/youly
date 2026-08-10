@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChatInterface } from "@/components/chat/ChatInterface";
 import { LoadFailure } from "@/components/shared/LoadFailure";
-import { getChatHistory } from "@/lib/storage";
+import { loadChatHistoryDb } from "@/lib/chat-db";
 import { resolveProfile } from "@/lib/resolve-profile";
 import { todayStr } from "@/lib/calories";
 import type { UserProfile, ChatMessage } from "@/lib/types";
@@ -34,7 +34,7 @@ export default function ChatPage() {
       }
       setUid(r.uid);
       setProfile(r.profile);
-      setMessages(getChatHistory(r.uid, todayStr()));
+      setMessages(await loadChatHistoryDb(r.uid, todayStr()));
       setLoading(false);
     }
     init();

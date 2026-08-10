@@ -38,6 +38,13 @@ create policy "saved_meal_items_insert" on public.saved_meal_items for insert wi
 create policy "saved_meal_items_update" on public.saved_meal_items for update using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "saved_meal_items_delete" on public.saved_meal_items for delete using (user_id = auth.uid());
 
+-- ─── chat_messages ────────────────────────────────────────────────────────────
+alter table public.chat_messages enable row level security;
+create policy "chat_messages_select" on public.chat_messages for select using (user_id = auth.uid());
+create policy "chat_messages_insert" on public.chat_messages for insert with check (user_id = auth.uid());
+create policy "chat_messages_update" on public.chat_messages for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "chat_messages_delete" on public.chat_messages for delete using (user_id = auth.uid());
+
 -- ─── food_reference (GLOBAL: read + write open to all authenticated users) ─────
 alter table public.food_reference enable row level security;
 create policy "food_reference_select" on public.food_reference for select using (auth.role() = 'authenticated');

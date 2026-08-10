@@ -36,8 +36,8 @@ export default function ConsentPage() {
           <div className="space-y-3 mb-6">
             <PrivacyRow
               icon="📱"
-              title="Your data stays on your device"
-              body="Your food logs, weight, and goals are stored locally on your phone. They never leave your device unless you choose to back them up."
+              title="Your data is private to you"
+              body="Your food logs, weight, goals, and conversations are stored in your own account and synced across your devices, with a copy kept on your phone. They're never shared with anyone else."
             />
             <PrivacyRow
               icon="🔒"
@@ -47,7 +47,7 @@ export default function ConsentPage() {
             <PrivacyRow
               icon="🗑️"
               title="You're in control"
-              body="Delete all your data anytime from the account menu. We'll permanently erase everything immediately, no questions asked."
+              body="Delete all your data anytime. We'll permanently erase everything from your device and our database, no questions asked."
             />
           </div>
 
@@ -100,7 +100,7 @@ function TermsContent() {
     <>
       <section>
         <h3 className="font-semibold text-gray-700 mb-1">Terms of Use</h3>
-        <p>Last updated: April 2025. By using Youly (&quot;the App&quot;), you agree to these Terms of Use.</p>
+        <p>Last updated: August 2026. By using Youly (&quot;the App&quot;), you agree to these Terms of Use.</p>
       </section>
       <section>
         <h4 className="font-semibold text-gray-700 mb-1">1. Eligibility</h4>
@@ -112,7 +112,7 @@ function TermsContent() {
       </section>
       <section>
         <h4 className="font-semibold text-gray-700 mb-1">3. Account and Data</h4>
-        <p>All health data you enter is stored locally on your device. You may optionally enable cloud backup, in which case an encrypted copy is stored securely solely to enable cross-device restore. We do not access, analyze, or share this data for any other purpose.</p>
+        <p>Health data you enter is stored in your Youly account on our hosted database so that it syncs across your devices, with a copy cached on your device for offline access. Your data is isolated from other users&apos; data by per-row access controls and transmitted over encrypted connections. We do not access, analyze, or share it for any purpose other than providing coaching to you.</p>
       </section>
       <section>
         <h4 className="font-semibold text-gray-700 mb-1">4. Limitation of Liability</h4>
@@ -121,13 +121,13 @@ function TermsContent() {
       <div className="border-t border-gray-100 my-4" />
       <section>
         <h3 className="font-semibold text-gray-700 mb-1">Privacy Policy</h3>
-        <p>Last updated: April 2025.</p>
+        <p>Last updated: August 2026.</p>
       </section>
       <section>
         <h4 className="font-semibold text-gray-700 mb-1">1. Information We Collect</h4>
         <p><strong>Identity:</strong> When you sign in with Google, we receive your name and email to create your account.</p>
-        <p className="mt-1"><strong>Health data (local-only by default):</strong> Food logs, weight, targets, and conversation history are stored on your device only.</p>
-        <p className="mt-1"><strong>Optional cloud backup:</strong> Your profile and logs are encrypted and stored on our servers solely to restore your data on a new device.</p>
+        <p className="mt-1"><strong>Health data:</strong> Food logs, weight, targets, saved meals, and conversation history are stored in your Youly account on our hosted database, so they are available on any device you sign in from. A copy is also cached on your device for offline access.</p>
+        <p className="mt-1"><strong>Isolation:</strong> Your records are readable and writable only by your signed-in account, enforced by per-row access controls at the database level.</p>
       </section>
       <section>
         <h4 className="font-semibold text-gray-700 mb-1">2. How We Use Your Information</h4>
@@ -139,7 +139,7 @@ function TermsContent() {
       </section>
       <section>
         <h4 className="font-semibold text-gray-700 mb-1">4. Data Deletion</h4>
-        <p>Local data stays on your device until you clear it. To request complete deletion of your account and any cloud backup, contact us at support@youly.app.</p>
+        <p>Resetting the app permanently deletes your profile, food logs, weights, saved meals, and conversation history from both your device and our database. To request complete deletion of your account, contact us at support@youly.app.</p>
       </section>
       <section>
         <h4 className="font-semibold text-gray-700 mb-1">5. Contact</h4>

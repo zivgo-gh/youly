@@ -78,6 +78,22 @@ create table if not exists public.saved_meal_items (
 );
 create index if not exists saved_meal_items_meal_idx on public.saved_meal_items (meal_id);
 
+-- ─── chat_messages (one row per message, ordered within a day) ────────────────
+-- Chat used to be localStorage-only, which meant Safari's 7-day ITP cap silently
+-- deleted it after any week-long gap. `position` is the index within that day's
+-- thread, so the whole day can be re-upserted idempotently.
+create table if not exists public.chat_messages (
+  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  local_date date not null,                 -- YYYY-MM-DD bucket (client local date)
+  position   int  not null,                 -- 0-based index within the day's thread
+  role       text not null,                 -- user | assistant
+  content    text not null,
+  ts         timestamptz not null,          -- ChatMessage.timestamp
+  created_at timestamptz not null default now(),
+  primary key (user_id, local_date, position)
+);
+create index if not exists chat_messages_user_date_idx on public.chat_messages (user_id, local_date);
+
 -- ─── food_reference (GLOBAL, confirmed-values-only) ───────────────────────────
 create table if not exists public.food_reference (
   id              uuid primary key default gen_random_uuid(),

@@ -11,8 +11,9 @@
 // device they'd look like a brand-new user and be sent back through onboarding.
 
 import { createSupabaseBrowserClient } from "./supabase-browser";
-import { getProfile, getAllLogs } from "./storage";
+import { getProfile, getAllLogs, getAvailableChatDates, getChatHistory } from "./storage";
 import { loadProfile, saveProfileDb } from "./db";
+import { loadChatDatesDb, saveChatHistoryDb } from "./chat-db";
 import type { UserProfile, DailyLogs } from "./types";
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -26,6 +27,9 @@ export function profileMigratedKey(uid: string) {
 }
 export function logsMigratedKey(uid: string) {
   return `arc_migrated_${uid}`;
+}
+export function chatMigratedKey(uid: string) {
+  return `arc_migrated_chat_${uid}`;
 }
 
 // Ensures a `profiles` row exists for this uid, recovering it from the local cache or the
@@ -130,8 +134,34 @@ async function migrateLogs(uid: string): Promise<void> {
   }
 }
 
+// Uploads any chat threads still sitting in localStorage. Only days the DB doesn't
+// already have are uploaded, so a stale local copy can never clobber the server's.
+async function migrateChat(uid: string): Promise<void> {
+  const flag = chatMigratedKey(uid);
+  if (localStorage.getItem(flag) === "1") return;
+
+  const localDates = getAvailableChatDates(uid);
+  if (localDates.length === 0) {
+    localStorage.setItem(flag, "1");
+    return;
+  }
+
+  const remoteDates = new Set(await loadChatDatesDb(uid));
+  let allOk = true;
+  for (const date of localDates) {
+    if (remoteDates.has(date)) continue;
+    const messages = getChatHistory(uid, date);
+    if (messages.length === 0) continue;
+    if (!(await saveChatHistoryDb(uid, date, messages))) allOk = false;
+  }
+
+  // Only mark done if every upload landed — otherwise retry on the next login.
+  if (allOk) localStorage.setItem(flag, "1");
+}
+
 export async function runMigration(uid: string): Promise<void> {
   if (typeof window === "undefined") return;
   await migrateProfile(uid); // may throw — a failed profile read must not be papered over
   await migrateLogs(uid);
+  await migrateChat(uid);
 }
