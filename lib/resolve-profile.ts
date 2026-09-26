@@ -7,6 +7,7 @@
 // existing user to /onboarding overwrites their real profile with a new one.
 
 import { createSupabaseBrowserClient } from "./supabase-browser";
+import { isRealAuthFailure } from "./auth-errors";
 import { getProfile } from "./storage";
 import { loadProfile } from "./db";
 import type { UserProfile } from "./types";
@@ -23,9 +24,11 @@ export async function resolveProfile(): Promise<ProfileResolution> {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (!user) {
-      // Couldn't complete the auth check → error, not "signed out".
-      return authError
-        ? { status: "error", message: authError.message }
+      // Couldn't complete the auth check → error. But "no session" also arrives
+      // here as an AuthSessionMissingError, and that IS "signed out" — reporting
+      // it as an error shows a scary failure screen to every logged-out visitor.
+      return isRealAuthFailure(authError)
+        ? { status: "error", message: authError!.message }
         : { status: "signed-out" };
     }
 

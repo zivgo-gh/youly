@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { runMigration } from "@/lib/migrate";
 import { resolveProfile } from "@/lib/resolve-profile";
+import { isRealAuthFailure } from "@/lib/auth-errors";
 import { LoadFailure } from "@/components/shared/LoadFailure";
 import { LoadingScreen } from "@/components/ui/Feedback";
 
@@ -32,8 +33,9 @@ export default function AppStartPage() {
         } = await supabase.auth.getUser();
 
         // A failed auth check is not "signed out" — bouncing to /login here would
-        // ping-pong against the proxy redirect.
-        if (authError && !user) {
+        // ping-pong against the proxy redirect. But an AuthSessionMissingError IS
+        // "signed out", and must fall through to the redirect below.
+        if (isRealAuthFailure(authError) && !user) {
           setFailed(true);
           return;
         }
