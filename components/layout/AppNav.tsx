@@ -36,10 +36,10 @@ export function AppSidebar({ footer }: { footer?: React.ReactNode }) {
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex min-h-11 items-center gap-3 rounded-2xl px-3 text-sm font-semibold transition-colors",
+                    "relative flex min-h-11 items-center gap-3 rounded-2xl px-3 text-sm transition-colors",
                     active
-                      ? "bg-brand-50 text-brand-800"
-                      : "text-ink-muted hover:bg-surface-sunken hover:text-ink"
+                      ? "bg-brand-100 font-bold text-brand-800 before:absolute before:left-0 before:top-1/2 before:h-5 before:w-1 before:-translate-y-1/2 before:rounded-r-full before:bg-brand-700"
+                      : "font-semibold text-ink-muted hover:bg-surface-sunken hover:text-ink"
                   )}
                 >
                   <Icon name={item.icon} />
@@ -71,11 +71,20 @@ export function AppTabBar() {
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs font-semibold transition-colors",
-                  active ? "text-brand-700" : "text-ink-muted"
+                  "flex min-h-14 flex-col items-center justify-center gap-1 pt-1.5 pb-1 text-[11px] transition-colors",
+                  active
+                    ? "font-bold text-brand-700"
+                    : "font-medium text-ink-muted"
                 )}
               >
-                <Icon name={item.icon} size={22} />
+                <span
+                  className={cn(
+                    "flex h-7 w-16 items-center justify-center rounded-full transition-colors",
+                    active && "bg-brand-100"
+                  )}
+                >
+                  <Icon name={item.icon} size={21} />
+                </span>
                 {/* Label always shown — icon-only tabs hurt discoverability. */}
                 {item.label}
               </Link>

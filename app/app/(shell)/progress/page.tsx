@@ -19,6 +19,10 @@ import { resolveProfile } from "@/lib/resolve-profile";
 import { LoadFailure } from "@/components/shared/LoadFailure";
 import {
   aggregateLast,
+  aggregateWindow,
+  lastLoggedDate,
+  latestWeight,
+  daysSince,
   computeTrajectory,
   weeklyStats,
   generateMilestones,
@@ -41,6 +45,7 @@ const STATUS: Record<
   on_track: { label: "On track", tone: "brand" },
   behind: { label: "Behind pace", tone: "warn" },
   insufficient_data: { label: "Keep logging", tone: "neutral" },
+  stale: { label: "Welcome back", tone: "neutral" },
 };
 
 function ChartFrame({
@@ -99,15 +104,27 @@ export default function ProgressPage() {
       setLogs(allLogs);
       setTrajectory(computeTrajectory(allLogs, p));
       const weeklyLossLbs = (p.dailyDeficit ?? 500) / 500;
+      // Start the journey from the most recent weigh-in, falling back to the
+      // onboarding weight only if there has never been one. Using the profile
+      // value unconditionally made months of progress invisible.
+      const startWeight =
+        latestWeight(allLogs)?.lbs ?? p.currentWeightLbs;
       setMilestones(
-        generateMilestones(p.currentWeightLbs, p.goalWeightLbs, weeklyLossLbs)
+        generateMilestones(startWeight, p.goalWeightLbs, weeklyLossLbs)
       );
       setLoading(false);
     }
     init();
   }, [router]);
 
-  const agg30 = profile && logs ? aggregateLast(logs, 30) : [];
+  // If the trailing 30 days are empty but history exists, show the 30 days
+  // ending at the last entry instead of an empty axis.
+  const lastLog = profile && logs ? lastLoggedDate(logs) : null;
+  const recentHasData =
+    profile && logs ? aggregateLast(logs, 30).some((d) => d.logged) : false;
+  const chartEnd = recentHasData ? undefined : (lastLog ?? undefined);
+  const agg30 = profile && logs ? aggregateWindow(logs, 30, chartEnd) : [];
+  const chartIsHistoric = Boolean(chartEnd);
   const stats7 = profile && logs ? weeklyStats(logs, 7) : null;
 
   const calChartData = agg30.map((d) => ({
@@ -153,6 +170,26 @@ export default function ProgressPage() {
 
   const currentWeightLbs =
     trajectory.currentWeightLbs ?? profile.currentWeightLbs;
+  // When the charts fall back to an older window, say so rather than labelling
+  // stale data "last 30 days".
+  const chartWindowLabel =
+    chartIsHistoric && agg30.length > 0
+      ? `30 days to ${new Date(
+          Number(agg30[agg30.length - 1].date.slice(0, 4)),
+          Number(agg30[agg30.length - 1].date.slice(5, 7)) - 1,
+          Number(agg30[agg30.length - 1].date.slice(8, 10))
+        ).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+      : "last 30 days";
+
+  const weighInLabel = trajectory.currentWeightDate
+    ? daysSince(trajectory.currentWeightDate) === 0
+      ? "today"
+      : new Date(
+          Number(trajectory.currentWeightDate.slice(0, 4)),
+          Number(trajectory.currentWeightDate.slice(5, 7)) - 1,
+          Number(trajectory.currentWeightDate.slice(8, 10))
+        ).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : "";
   const weeklyLossLbs = (profile.dailyDeficit ?? 500) / 500;
   const status = STATUS[trajectory.status];
 
@@ -175,7 +212,15 @@ export default function ProgressPage() {
           <Card as="section">
             <CardLabel>Goal</CardLabel>
             <div className="mt-4 flex flex-wrap items-center gap-x-8 gap-y-4">
-              <Stat label="Current weight" value={currentWeightLbs} unit="lbs" />
+              <Stat
+                label={
+                  trajectory.currentWeightDate
+                    ? `Weight · ${weighInLabel}`
+                    : "Starting weight"
+                }
+                value={currentWeightLbs}
+                unit="lbs"
+              />
               <Icon
                 name="chevron-right"
                 className="hidden text-ink-muted sm:block"
@@ -211,6 +256,23 @@ export default function ProgressPage() {
               <p className="tnum mt-2 text-sm text-ink-muted">
                 Projected loss: {trajectory.projectedWeeklyLossLbs} lbs/week, based
                 on the last 14 days.
+              </p>
+            ) : null}
+
+            {/* A returning user used to be told to "keep logging", which reads as
+                though their history had been lost. It hasn't — it is simply older
+                than the 14-day window the projection needs. */}
+            {trajectory.status === "stale" ? (
+              <p className="mt-3 rounded-2xl bg-surface-sunken px-4 py-3 text-sm text-ink-body">
+                Your history is all here — your last entry was{" "}
+                <strong className="font-semibold text-ink">
+                  {trajectory.daysSinceLastLog === 0
+                    ? "today"
+                    : trajectory.daysSinceLastLog === 1
+                      ? "yesterday"
+                      : `${trajectory.daysSinceLastLog} days ago`}
+                </strong>
+                . Log a few days and the pace projection comes back.
               </p>
             ) : null}
           </Card>
@@ -281,7 +343,7 @@ export default function ProgressPage() {
           ) : null}
 
           <ChartFrame
-            title="Calories — last 30 days"
+            title={`Calories — ${chartWindowLabel}`}
             summary={`Daily calories over the last 30 days against a target of ${profile.dailyCalorieTarget} kcal. This week averaged ${stats7?.avgCalories ?? 0} kcal per day.`}
           >
             <BarChart
@@ -308,7 +370,7 @@ export default function ProgressPage() {
           </ChartFrame>
 
           <ChartFrame
-            title="Protein — last 30 days"
+            title={`Protein — ${chartWindowLabel}`}
             summary={`Daily protein over the last 30 days against a target of ${profile.dailyProteinTarget} grams. This week averaged ${stats7?.avgProtein ?? 0} grams per day.`}
           >
             <BarChart
@@ -336,7 +398,7 @@ export default function ProgressPage() {
 
           {weightChartData.length > 1 ? (
             <ChartFrame
-              title="Weight trend"
+              title={chartIsHistoric ? `Weight trend — ${chartWindowLabel}` : "Weight trend"}
               summary={`Weight readings over the last 30 days, currently ${currentWeightLbs} lbs against a goal of ${profile.goalWeightLbs} lbs.`}
             >
               <LineChart

@@ -22,6 +22,7 @@ const STATUS: Record<
   on_track: { label: "On track", tone: "brand" },
   behind: { label: "Behind pace", tone: "warn" },
   insufficient_data: { label: "Keep logging", tone: "neutral" },
+  stale: { label: "Picking up where you left off", tone: "neutral" },
 };
 
 export function MacroPanel({

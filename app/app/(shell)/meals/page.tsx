@@ -310,43 +310,50 @@ export default function MealsPage() {
                 ) : null}
               </legend>
               {form.items.map((it, idx) => (
-                <div key={idx} className="flex items-center gap-2">
+                // Stacked on a phone. In one row, the fixed-width number fields
+                // left the food name about 99px on a 375px screen.
+                <div
+                  key={idx}
+                  className="flex flex-col gap-2 rounded-2xl border border-border-subtle p-2 sm:flex-row sm:items-center sm:border-0 sm:p-0"
+                >
                   <Input
                     aria-label={`Food ${idx + 1}`}
                     placeholder="Food"
-                    className="flex-1"
+                    className="w-full sm:flex-1"
                     value={it.description}
                     onChange={(e) =>
                       updateItem(idx, { description: e.target.value })
                     }
                   />
-                  <Input
-                    aria-label={`Calories for food ${idx + 1}`}
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    placeholder="kcal"
-                    className="w-24 px-2 text-center"
-                    value={it.calories}
-                    onChange={(e) => updateItem(idx, { calories: e.target.value })}
-                  />
-                  <Input
-                    aria-label={`Protein grams for food ${idx + 1}`}
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    placeholder="g"
-                    className="w-20 px-2 text-center"
-                    value={it.protein}
-                    onChange={(e) => updateItem(idx, { protein: e.target.value })}
-                  />
-                  <IconButton
-                    icon="close"
-                    label={`Remove food ${idx + 1}`}
-                    size={36}
-                    disabled={form.items.length === 1}
-                    onClick={() => removeItem(idx)}
-                  />
+                  <div className="flex items-center gap-2">
+                    <Input
+                      aria-label={`Calories for food ${idx + 1}`}
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      placeholder="kcal"
+                      className="w-full px-2 text-center sm:w-24"
+                      value={it.calories}
+                      onChange={(e) => updateItem(idx, { calories: e.target.value })}
+                    />
+                    <Input
+                      aria-label={`Protein grams for food ${idx + 1}`}
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      placeholder="g"
+                      className="w-full px-2 text-center sm:w-20"
+                      value={it.protein}
+                      onChange={(e) => updateItem(idx, { protein: e.target.value })}
+                    />
+                    <IconButton
+                      icon="close"
+                      label={`Remove food ${idx + 1}`}
+                      size={40}
+                      disabled={form.items.length === 1}
+                      onClick={() => removeItem(idx)}
+                    />
+                  </div>
                 </div>
               ))}
               <Button variant="ghost" size="sm" onClick={addItem}>

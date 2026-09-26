@@ -12,16 +12,67 @@ export function ProgressBar({
   target,
   unit,
   series = "calories",
+  compact = false,
 }: {
   label: string;
   value: number;
   target: number;
   unit: string;
   series?: "calories" | "protein";
+  /** Phone chat header: leads with what's LEFT, which is the glanceable number,
+      and drops a row so two of these fit side by side above the conversation. */
+  compact?: boolean;
 }) {
   const over = target > 0 && value > target;
   const pct = target > 0 ? Math.min(100, Math.round((value / target) * 100)) : 0;
   const remaining = Math.max(0, target - value);
+
+  const bar = (
+    <div
+      role="progressbar"
+      aria-label={`${label}: ${value} of ${target} ${unit}`}
+      aria-valuenow={value}
+      aria-valuemin={0}
+      aria-valuemax={target}
+      className="h-1.5 w-full overflow-hidden rounded-full bg-border-subtle"
+    >
+      <div
+        className={cn(
+          "h-full rounded-full transition-[width] duration-300",
+          over
+            ? "bg-data-over"
+            : series === "protein"
+              ? "bg-data-protein"
+              : "bg-data-calories"
+        )}
+        style={{ width: `${Math.max(pct, value > 0 ? 3 : 0)}%` }}
+      />
+    </div>
+  );
+
+  if (compact) {
+    return (
+      <div className="min-w-0">
+        <p className="truncate text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
+          {label}
+        </p>
+        <p
+          className={cn(
+            "tnum mt-0.5 truncate text-[15px] font-semibold",
+            over ? "text-data-over" : "text-ink"
+          )}
+        >
+          {over
+            ? `${(value - target).toLocaleString()} ${unit} over`
+            : `${remaining.toLocaleString()} ${unit} left`}
+        </p>
+        <div className="mt-1.5">{bar}</div>
+        <p className="tnum mt-1 truncate text-[11px] text-ink-muted">
+          {value.toLocaleString()} of {target.toLocaleString()}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>

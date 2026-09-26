@@ -10,6 +10,23 @@ export function todayStr(): string {
   return localDateStr(new Date());
 }
 
+/** `days` consecutive dates ending on `endDate` (default today), oldest first. */
+export function dateRangeEnding(days: number, endDate?: string): string[] {
+  const end = endDate
+    ? (() => {
+        const [y, m, d] = endDate.split("-").map(Number);
+        return new Date(y, m - 1, d);
+      })()
+    : new Date();
+  const result: string[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(end);
+    d.setDate(d.getDate() - i);
+    result.push(localDateStr(d));
+  }
+  return result;
+}
+
 export function dateRange(days: number): string[] {
   const result: string[] = [];
   for (let i = days - 1; i >= 0; i--) {
@@ -36,6 +53,30 @@ export interface DayAggregate {
   protein: number;
   weightLbs: number | null;
   logged: boolean; // whether the user logged anything that day
+}
+
+/**
+ * A `days`-long window ending on `endDate` (default today).
+ *
+ * The explicit end date is what lets the progress charts fall back to the last
+ * window that actually contains data, rather than rendering an empty axis for a
+ * user whose history predates the default window.
+ */
+export function aggregateWindow(
+  logs: DailyLogs,
+  days: number,
+  endDate?: string
+): DayAggregate[] {
+  return dateRangeEnding(days, endDate).map((date) => {
+    const day = logs[date];
+    return {
+      date,
+      calories: day?.totalCalories ?? 0,
+      protein: day?.totalProtein ?? 0,
+      weightLbs: day?.weightLbs ?? null,
+      logged: (day?.entries?.length ?? 0) > 0,
+    };
+  });
 }
 
 export function aggregateLast(logs: DailyLogs, days: number): DayAggregate[] {
@@ -83,8 +124,52 @@ export interface Trajectory {
   projectedWeeklyLossLbs: number;
   estimatedGoalDate: string | null;
   weeksToGoal: number | null;
-  status: "on_track" | "ahead" | "behind" | "insufficient_data";
-  currentWeightLbs: number | null; // latest logged weight
+  // "stale" = there IS history, just none inside the recent window. Distinct from
+  // "insufficient_data" (genuinely new), because telling a returning user with
+  // months of history to "keep logging" reads as though their data was lost.
+  status: "on_track" | "ahead" | "behind" | "insufficient_data" | "stale";
+  currentWeightLbs: number | null; // latest logged weight across ALL history
+  currentWeightDate: string | null;
+  daysSinceLastLog: number | null; // null when nothing has ever been logged
+}
+
+/**
+ * Most recent weight across the WHOLE history, not a rolling window.
+ *
+ * This distinction is the bug it was written to fix: trajectory used to read the
+ * weight out of a 14-day window, so anyone returning after a gap fell back to
+ * `profile.currentWeightLbs` — the number captured at onboarding — and the app
+ * looked like it had forgotten months of progress.
+ */
+export function latestWeight(
+  logs: DailyLogs
+): { lbs: number; date: string } | null {
+  let best: { lbs: number; date: string } | null = null;
+  for (const [date, day] of Object.entries(logs)) {
+    const lbs = day?.weightLbs;
+    if (lbs == null) continue;
+    if (!best || date > best.date) best = { lbs, date };
+  }
+  return best;
+}
+
+/** The most recent date with any food logged, across all history. */
+export function lastLoggedDate(logs: DailyLogs): string | null {
+  let best: string | null = null;
+  for (const [date, day] of Object.entries(logs)) {
+    if (!day?.entries?.length) continue;
+    if (!best || date > best) best = date;
+  }
+  return best;
+}
+
+/** Whole days between a YYYY-MM-DD date and today, in local time. */
+export function daysSince(dateStr: string): number {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const then = new Date(y, m - 1, d);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((today.getTime() - then.getTime()) / 86_400_000);
 }
 
 export function computeTrajectory(
@@ -94,12 +179,14 @@ export function computeTrajectory(
   const agg = aggregateLast(logs, 14);
   const loggedDays = agg.filter((d) => d.logged);
 
-  // Get latest logged weight
-  const weightEntries = agg
-    .filter((d) => d.weightLbs !== null)
-    .sort((a, b) => b.date.localeCompare(a.date));
-  const currentWeightLbs =
-    weightEntries.length > 0 ? weightEntries[0].weightLbs : null;
+  // Weight comes from the whole history, never the 14-day window — see
+  // latestWeight() for why.
+  const weigh = latestWeight(logs);
+  const currentWeightLbs = weigh?.lbs ?? null;
+  const currentWeightDate = weigh?.date ?? null;
+
+  const lastLog = lastLoggedDate(logs);
+  const daysSinceLastLog = lastLog ? daysSince(lastLog) : null;
 
   if (loggedDays.length < 3) {
     return {
@@ -107,8 +194,12 @@ export function computeTrajectory(
       projectedWeeklyLossLbs: 0,
       estimatedGoalDate: null,
       weeksToGoal: null,
-      status: "insufficient_data",
+      // Having logged before but not lately is a different situation from never
+      // having logged, and the UI says so.
+      status: lastLog ? "stale" : "insufficient_data",
       currentWeightLbs,
+      currentWeightDate,
+      daysSinceLastLog,
     };
   }
 
@@ -145,6 +236,8 @@ export function computeTrajectory(
     weeksToGoal,
     status,
     currentWeightLbs,
+    currentWeightDate,
+    daysSinceLastLog,
   };
 }
 

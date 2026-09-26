@@ -324,14 +324,14 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
         <MacroPanel profile={profile} todayLog={todayLog} trajectory={trajectory} />
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/* Day navigation + macro strip. Hidden at xl, where the rail covers it. */}
         <div className="shrink-0 border-b border-border-subtle bg-surface px-4 pb-3 pt-2 xl:hidden">
           <div className="mx-auto flex max-w-3xl items-center justify-between">
             <IconButton
               icon="chevron-left"
               label="Previous day"
-              size={36}
+              size={32}
               disabled={!prevDate}
               onClick={() => prevDate && setViewDate(prevDate)}
             />
@@ -354,14 +354,15 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
             <IconButton
               icon="chevron-right"
               label="Next day"
-              size={36}
+              size={32}
               disabled={!nextDate}
               onClick={() => nextDate && setViewDate(nextDate)}
             />
           </div>
 
-          <div className="mx-auto mt-1 grid max-w-3xl gap-4 sm:grid-cols-2">
+          <div className="mx-auto mt-1 grid max-w-3xl grid-cols-2 gap-x-5 gap-y-3">
             <ProgressBar
+              compact
               label="Calories"
               value={viewedLog.totalCalories}
               target={profile.dailyCalorieTarget}
@@ -369,6 +370,7 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
               series="calories"
             />
             <ProgressBar
+              compact
               label="Protein"
               value={viewedLog.totalProtein}
               target={profile.dailyProteinTarget}
@@ -391,7 +393,10 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
               </button>
 
               {showFoodLog ? (
-                <div id="food-log-panel" className="mt-2 space-y-4 border-t border-border-subtle pt-3">
+                <div
+                  id="food-log-panel"
+                  className="mt-2 max-h-[34dvh] space-y-4 overflow-y-auto border-t border-border-subtle pt-3"
+                >
                   {MEAL_ORDER.filter((m) => entriesByMeal[m]?.length).map((meal) => (
                     <div key={meal}>
                       <div className="flex items-center justify-between">
