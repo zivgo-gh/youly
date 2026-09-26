@@ -7,6 +7,12 @@ import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { MessageBubble } from "@/components/chat/MessageBubble";
 import { AVATARS } from "@/lib/types";
 import { CoachPhoto } from "@/components/shared/CoachPhoto";
+import { Composer } from "@/components/chat/Composer";
+import { FunnelShell } from "@/components/layout/FunnelShell";
+import { Sheet } from "@/components/ui/Sheet";
+import { Button } from "@/components/ui/Button";
+import { Field, Input } from "@/components/ui/Field";
+import { TypingDots } from "@/components/ui/Feedback";
 import type { UserProfile, CoachAvatar } from "@/lib/types";
 import { saveProfile, clearAllData, deleteCloudBackups } from "@/lib/storage";
 import { saveProfileDb } from "@/lib/db";
@@ -22,10 +28,14 @@ export default function OnboardingPage() {
   const pendingProfileJson = useRef<string | null>(null);
   const [input, setInput] = useState("");
   const [interimText, setInterimText] = useState("");
-  const [showInput, setShowInput] = useState(false);
   const [uid, setUid] = useState<string | undefined>(undefined);
   const [email, setEmail] = useState<string | undefined>(undefined);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [showReset, setShowReset] = useState(false);
+  const [showSwitch, setShowSwitch] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  // null = not counted yet; drives the "you are about to destroy N entries" line.
+  const [loggedEntries, setLoggedEntries] = useState<number | null>(null);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -40,29 +50,25 @@ export default function OnboardingPage() {
   // Signing in with the wrong Google account looks exactly like "the app reset" — an
   // empty profile and a fresh coach picker. Make the account visible before onboarding.
   const handleSwitchAccount = async () => {
-    if (!confirm("Sign out and choose a different account? Nothing is deleted.")) return;
     const supabase = createSupabaseBrowserClient();
     await supabase.auth.signOut();
     window.location.replace("/login?next=/app/onboarding");
   };
 
+  // This screen is reachable by accident (a profile that merely failed to load lands
+  // here), so the reset must state exactly what it will destroy, up front.
+  useEffect(() => {
+    if (!showReset || !uid || loggedEntries !== null) return;
+    createSupabaseBrowserClient()
+      .from("food_entries")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", uid)
+      .then(({ count }) => setLoggedEntries(count ?? 0));
+  }, [showReset, uid, loggedEntries]);
+
   const handleReset = async () => {
-    // This screen is reachable by accident (e.g. a profile that failed to load), so the
-    // reset has to spell out exactly what it destroys before it destroys it.
+    setResetting(true);
     const supabase = createSupabaseBrowserClient();
-    let loggedDays = 0;
-    if (uid) {
-      const { count } = await supabase
-        .from("food_entries")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", uid);
-      loggedDays = count ?? 0;
-    }
-    const warning = loggedDays
-      ? `This permanently deletes ALL your data — ${loggedDays} logged food entries, your weights, saved meals and profile. This cannot be undone.\n\nAre you sure?`
-      : "This permanently deletes your profile and all logged data. This cannot be undone.\n\nAre you sure?";
-    if (!confirm(warning)) return;
-    if (loggedDays > 0 && !confirm(`Last chance — delete ${loggedDays} food entries forever?`)) return;
 
     clearAllData(uid);
     if (uid) {
@@ -79,7 +85,6 @@ export default function OnboardingPage() {
       localStorage.removeItem(profileMigratedKey(uid));
       localStorage.removeItem(chatMigratedKey(uid));
     }
-    localStorage.removeItem("arc_intro_done");
     localStorage.removeItem("youly_tour_done");
     await supabase.auth.signOut();
     window.location.replace("/");
@@ -179,18 +184,6 @@ export default function OnboardingPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingText]);
 
-  const handleSubmit = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    submitMessage(input);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
-    }
-  };
-
   // Hide the "start" trigger message from display
   const displayMessages = messages.filter(
     (m, i) => !(i === 0 && m.role === "user" && m.content === "start")
@@ -199,35 +192,42 @@ export default function OnboardingPage() {
   // ── Avatar picker ──────────────────────────────────────────────────────────
   if (!selectedAvatar) {
     return (
-      <div className="h-screen flex flex-col bg-emerald-700 text-white overflow-hidden">
-        {/* Green header */}
-        <div className="px-6 pt-10 pb-6 shrink-0 flex items-start justify-between">
-          <div>
-            <p className="text-4xl font-black tracking-tight text-emerald-300 uppercase mb-3">Youly</p>
-            <h1 className="text-[1.6rem] font-bold leading-snug text-white">
-              Who do you want<br />to work with?
-            </h1>
-            <p className="text-emerald-200 text-sm mt-1">Same great coaching — just pick whoever you vibe with.</p>
-          </div>
-          <button
-            onClick={handleReset}
-            className="text-xs text-emerald-400 hover:text-red-300 transition-colors mt-1 shrink-0"
-          >
-            Reset
-          </button>
-        </div>
-
-        {/* White card with avatar grid */}
-        <div className="flex-1 bg-white rounded-t-3xl px-6 pt-8 pb-10 overflow-y-auto">
-          {email && (
-            <div className="mb-6 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3">
-              <p className="text-[13px] text-amber-900">
-                Setting up a new profile for <span className="font-semibold">{email}</span>.
+      <>
+        <FunnelShell
+          eyebrow="Pick your coach"
+          title={
+            <>
+              Who do you want
+              <br />
+              to work with?
+            </>
+          }
+          subtitle="Same coaching either way — pick whoever you'd rather talk to."
+          headerAction={
+            <button
+              type="button"
+              onClick={() => setShowReset(true)}
+              className="min-h-9 shrink-0 px-2 text-sm font-medium text-brand-100 underline underline-offset-2"
+            >
+              Reset
+            </button>
+          }
+        >
+          {/* Signing in with the wrong Google account looks exactly like "the app
+              wiped my data" — an empty profile and a fresh coach picker. Naming the
+              account here is what stops that panic. */}
+          {email ? (
+            <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-sm text-amber-900">
+                Setting up a new profile for{" "}
+                <span className="font-semibold">{email}</span>.
               </p>
-              <p className="text-[13px] text-amber-800 mt-1">
-                Already have a Youly profile? You may be signed in with a different account —{" "}
+              <p className="mt-1 text-sm text-amber-900">
+                Already have a Youly profile? You may be signed in with a different
+                account —{" "}
                 <button
-                  onClick={handleSwitchAccount}
+                  type="button"
+                  onClick={() => setShowSwitch(true)}
                   className="font-semibold underline underline-offset-2"
                 >
                   switch account
@@ -235,200 +235,245 @@ export default function OnboardingPage() {
                 .
               </p>
             </div>
-          )}
+          ) : null}
 
-          <div className="grid grid-cols-2 gap-4">
-            {(Object.entries(AVATARS) as [CoachAvatar, typeof AVATARS[CoachAvatar]][]).map(
-              ([key, avatar]) => (
+          <ul className="grid grid-cols-2 gap-4">
+            {(
+              Object.entries(AVATARS) as [
+                CoachAvatar,
+                (typeof AVATARS)[CoachAvatar],
+              ][]
+            ).map(([key, coach]) => (
+              <li key={key}>
                 <button
-                  key={key}
+                  type="button"
                   onClick={() => setSelectedAvatar(key)}
-                  className="flex flex-col items-center text-center bg-gray-50 rounded-2xl border-2 border-transparent p-5 gap-3 hover:border-emerald-400 hover:bg-emerald-50 active:scale-95 transition-all duration-150"
+                  className="flex w-full flex-col items-center gap-3 rounded-2xl border-2 border-transparent bg-surface-sunken p-5 text-center transition-colors duration-150 hover:border-brand-600 hover:bg-brand-50"
                 >
                   <CoachPhoto avatar={key} size={84} />
-                  <p className="text-base font-bold text-gray-800">{avatar.name}</p>
+                  <span className="text-base font-semibold text-ink">
+                    {coach.name}
+                  </span>
                 </button>
-              )
-            )}
-          </div>
-        </div>
-      </div>
+              </li>
+            ))}
+          </ul>
+        </FunnelShell>
+
+        <Sheet
+          open={showSwitch}
+          onClose={() => setShowSwitch(false)}
+          title="Sign in with a different account?"
+          footer={
+            <div className="flex gap-3">
+              <Button
+                variant="secondary"
+                fullWidth
+                onClick={() => setShowSwitch(false)}
+              >
+                Stay here
+              </Button>
+              <Button fullWidth onClick={handleSwitchAccount}>
+                Switch account
+              </Button>
+            </div>
+          }
+        >
+          <p className="text-sm text-ink-body">
+            You&apos;ll be signed out and taken back to the sign-in screen.{" "}
+            <strong className="font-semibold text-ink">Nothing is deleted</strong> —
+            if you have a profile on another account, signing into it will bring
+            everything back.
+          </p>
+        </Sheet>
+
+        <ResetSheet
+          open={showReset}
+          onClose={() => setShowReset(false)}
+          loggedEntries={loggedEntries}
+          busy={resetting}
+          onConfirm={handleReset}
+        />
+      </>
     );
   }
 
-  // ── Chat ───────────────────────────────────────────────────────────────────
+  // ── Conversation ───────────────────────────────────────────────────────────
   const avatar = AVATARS[selectedAvatar];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-white flex flex-col">
-      <header className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-white/80">
-        <div className="flex items-center gap-3">
-          <CoachPhoto avatar={selectedAvatar} size={38} />
-          <div>
-            <p className="text-base font-bold text-gray-800 leading-none">{avatar.name}</p>
-            <p className="text-sm text-gray-400">{avatar.tagline}</p>
-          </div>
+    <div className="flex h-dvh flex-col bg-surface-sunken">
+      <header className="flex shrink-0 items-center gap-3 border-b border-border-subtle bg-surface px-4 py-3 pt-safe">
+        <CoachPhoto avatar={selectedAvatar} size={36} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-ink">{avatar.name}</p>
+          <p className="text-xs text-ink-muted">Setting up your plan</p>
         </div>
-        <button
-          onClick={handleReset}
-          className="text-xs text-gray-300 hover:text-red-400 transition-colors"
-        >
-          Reset
-        </button>
       </header>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-5 max-w-2xl mx-auto w-full space-y-5">
-        {displayMessages.map((msg, i) => (
-          <MessageBubble key={i} message={msg} coachAvatar={selectedAvatar} />
-        ))}
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
+        <div className="mx-auto max-w-3xl space-y-5">
+          {displayMessages.map((msg, i) => (
+            <MessageBubble key={i} message={msg} coachAvatar={selectedAvatar} />
+          ))}
 
-        {streamingText && (
-          <MessageBubble
-            message={{ role: "assistant", content: streamingText, timestamp: new Date().toISOString() }}
-            coachAvatar={selectedAvatar}
-            isStreaming
+          <div aria-live="polite">
+            {streamingText ? (
+              <MessageBubble
+                message={{
+                  role: "assistant",
+                  content: streamingText,
+                  timestamp: new Date().toISOString(),
+                }}
+                coachAvatar={selectedAvatar}
+                isStreaming
+              />
+            ) : null}
+          </div>
+
+          {isLoading && !streamingText ? (
+            <div className="flex gap-3">
+              <CoachPhoto avatar={selectedAvatar} size={36} className="mt-0.5" />
+              <div className="flex h-11 items-center rounded-2xl rounded-tl-sm border border-border-subtle bg-surface px-4 shadow-card">
+                <TypingDots label={`${avatar.name} is typing`} />
+              </div>
+            </div>
+          ) : null}
+
+          <div ref={bottomRef} />
+        </div>
+      </div>
+
+      {saveError ? (
+        <div className="shrink-0 border-t border-danger/20 bg-danger-soft px-4 py-3">
+          <p role="alert" className="text-sm font-medium text-danger">
+            {saveError}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              if (pendingProfileJson.current) {
+                handleProfileComplete(pendingProfileJson.current);
+              }
+            }}
+            className="mt-1 text-sm font-semibold text-danger underline"
+          >
+            Try saving again
+          </button>
+        </div>
+      ) : null}
+
+      {profileReady ? (
+        <div className="shrink-0 border-t border-border-subtle bg-surface px-4 py-4 pb-safe">
+          <div className="mx-auto max-w-3xl">
+            <Button
+              fullWidth
+              size="lg"
+              onClick={() => router.replace("/app/chat")}
+            >
+              I&apos;m ready — let&apos;s go
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="shrink-0">
+          <Composer
+            value={input}
+            onChange={setInput}
+            onSubmit={() => submitMessage(input)}
+            isLoading={isLoading}
+            isListening={isListening}
+            interimText={interimText}
+            onToggleMic={toggle}
+            placeholder="Type your answer…"
           />
-        )}
-
-        {isLoading && !streamingText && (
-          <div className="flex gap-3">
-            <div className="shrink-0 w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-lg">
-              {avatar.emoji}
-            </div>
-            <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-sm shadow-sm px-4 py-3">
-              <div className="flex gap-1.5 items-center h-5">
-                <span className="w-2 h-2 rounded-full bg-gray-300 animate-bounce [animation-delay:0ms]" />
-                <span className="w-2 h-2 rounded-full bg-gray-300 animate-bounce [animation-delay:150ms]" />
-                <span className="w-2 h-2 rounded-full bg-gray-300 animate-bounce [animation-delay:300ms]" />
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Input — or CTA when profile is ready */}
-      <div className="border-t border-gray-100 bg-white px-4 pt-3 pb-6">
-        {saveError ? (
-          <div className="flex flex-col items-center gap-3 py-2">
-            <p className="text-sm text-red-500 text-center max-w-sm">{saveError}</p>
-            <button
-              onClick={() => {
-                const json = pendingProfileJson.current;
-                if (json) handleProfileComplete(json);
-              }}
-              className="w-full max-w-sm py-4 rounded-2xl bg-emerald-500 text-white font-bold text-lg shadow-lg active:scale-95 transition-transform"
-            >
-              Try saving again
-            </button>
-          </div>
-        ) : profileReady ? (
-          <div className="flex flex-col items-center gap-3 py-2">
-            <p className="text-sm text-gray-400">Your profile is all set!</p>
-            <button
-              onClick={() => router.push("/chat")}
-              className="w-full max-w-sm py-4 rounded-2xl bg-emerald-500 text-white font-bold text-lg shadow-lg active:scale-95 transition-transform"
-            >
-              I&apos;m ready — let&apos;s go! →
-            </button>
-          </div>
-        ) : (
-        <>
-          {isListening && (
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <span className="text-sm text-red-500 font-medium animate-pulse">Listening…</span>
-              {interimText && (
-                <span className="text-sm text-gray-400 italic truncate max-w-[220px]">
-                  &ldquo;{interimText}&rdquo;
-                </span>
-              )}
-            </div>
-          )}
-
-          {showInput && (
-            <form onSubmit={(e) => { handleSubmit(e); setShowInput(false); }} className="mb-2">
-              <div className="flex gap-2 items-end max-w-2xl mx-auto">
-                <textarea
-                  autoFocus
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); setShowInput(false); } }}
-                  placeholder="Type your answer…"
-                  rows={1}
-                  className="flex-1 resize-none rounded-2xl border border-gray-200 px-4 py-3 text-base text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent max-h-32 overflow-y-auto"
-                  style={{ minHeight: "48px" }}
-                  onInput={(e) => {
-                    const el = e.currentTarget;
-                    el.style.height = "auto";
-                    el.style.height = Math.min(el.scrollHeight, 128) + "px";
-                  }}
-                />
-                {input.trim() ? (
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="shrink-0 w-11 h-11 rounded-2xl bg-emerald-500 text-white flex items-center justify-center disabled:opacity-40"
-                  >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-                    </svg>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowInput(false)}
-                    className="shrink-0 w-11 h-11 rounded-2xl bg-gray-100 text-gray-400 flex items-center justify-center"
-                  >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                    </svg>
-                  </button>
-                )}
-              </div>
-            </form>
-          )}
-
-          <div className="flex items-center justify-center gap-6">
-            <button
-              onClick={() => setShowInput((v) => !v)}
-              disabled={isLoading}
-              aria-label="Type a message"
-              className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${showInput ? "bg-emerald-100 text-emerald-600" : "bg-gray-100 text-gray-400 hover:bg-gray-200"}`}
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20 5H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 5H5v-2h2v2zm10 0H7v-2h10v2zm0-3h-2v-2h2v2zm0-3h-2V8h2v2zm3 6h-2v-2h2v2z"/>
-              </svg>
-            </button>
-
-            <button
-              onClick={toggle}
-              disabled={isLoading}
-              aria-label={isListening ? "Stop listening" : "Start voice input"}
-              className={`relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200 disabled:opacity-40 shadow-lg active:scale-95
-                ${isListening ? "bg-red-500 hover:bg-red-600" : "bg-emerald-500 hover:bg-emerald-600"}`}
-            >
-              {isListening && (
-                <span className="absolute inset-0 rounded-full bg-red-400 animate-ping opacity-40" />
-              )}
-              {isListening ? (
-                <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
-                  <rect x="6" y="6" width="12" height="12" rx="2" />
-                </svg>
-              ) : (
-                <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2H3v2a9 9 0 0 0 8 8.94V23h2v-2.06A9 9 0 0 0 21 12v-2h-2z" />
-                </svg>
-              )}
-            </button>
-
-            <div className="w-11" />
-          </div>
-        </>
-        )}
-      </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+/**
+ * The full-wipe confirmation.
+ *
+ * This replaces two stacked native confirm() calls. They were the only guard on the
+ * most destructive action in the product, and this screen is reachable by accident —
+ * a profile that merely failed to load can land you here. So the count of what will
+ * be destroyed is shown, and destructive confirmation requires typing.
+ */
+function ResetSheet({
+  open,
+  onClose,
+  loggedEntries,
+  busy,
+  onConfirm,
+}: {
+  open: boolean;
+  onClose: () => void;
+  loggedEntries: number | null;
+  busy: boolean;
+  onConfirm: () => void;
+}) {
+  const [typed, setTyped] = useState("");
+  const armed = typed.trim().toUpperCase() === "DELETE";
+
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title="Delete everything?"
+      description="This cannot be undone."
+      footer={
+        <div className="flex gap-3">
+          <Button variant="secondary" fullWidth onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            fullWidth
+            disabled={!armed}
+            loading={busy}
+            onClick={onConfirm}
+          >
+            Delete forever
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <p className="text-sm text-ink-body">
+          This permanently deletes your profile, weights, saved meals, and chat
+          history from both this device and our database.
+        </p>
+
+        {loggedEntries === null ? (
+          <p className="text-sm text-ink-muted">Checking what you have logged…</p>
+        ) : loggedEntries > 0 ? (
+          <p className="rounded-2xl bg-danger-soft px-4 py-3 text-sm font-semibold text-danger">
+            Including{" "}
+            <span className="tnum">{loggedEntries.toLocaleString()}</span> logged
+            food {loggedEntries === 1 ? "entry" : "entries"}.
+          </p>
+        ) : null}
+
+        <p className="text-sm text-ink-body">
+          If you only meant to use a different account, close this and choose{" "}
+          <strong className="font-semibold text-ink">switch account</strong> instead
+          — that deletes nothing.
+        </p>
+
+        <Field label="Type DELETE to confirm">
+          {(props) => (
+            <Input
+              {...props}
+              value={typed}
+              autoComplete="off"
+              onChange={(e) => setTyped(e.target.value)}
+              placeholder="DELETE"
+            />
+          )}
+        </Field>
+      </div>
+    </Sheet>
   );
 }
