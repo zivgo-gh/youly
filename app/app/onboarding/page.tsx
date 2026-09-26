@@ -43,7 +43,7 @@ export default function OnboardingPage() {
     if (!confirm("Sign out and choose a different account? Nothing is deleted.")) return;
     const supabase = createSupabaseBrowserClient();
     await supabase.auth.signOut();
-    window.location.replace("/login");
+    window.location.replace("/login?next=/app/onboarding");
   };
 
   const handleReset = async () => {
@@ -83,7 +83,7 @@ export default function OnboardingPage() {
     localStorage.removeItem("arc_consent_done");
     localStorage.removeItem("youly_tour_done");
     await supabase.auth.signOut();
-    window.location.replace("/intro");
+    window.location.replace("/");
   };
 
   const handleProfileComplete = useCallback(

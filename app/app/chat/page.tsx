@@ -25,11 +25,11 @@ export default function ChatPage() {
         return;
       }
       if (r.status === "signed-out") {
-        router.replace("/login");
+        router.replace("/login?next=/app/chat");
         return;
       }
       if (r.status === "needs-onboarding") {
-        router.replace("/onboarding");
+        router.replace("/app/onboarding");
         return;
       }
       setUid(r.uid);

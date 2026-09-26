@@ -86,11 +86,11 @@ export default function ProgressPage() {
         return;
       }
       if (r.status === "signed-out") {
-        router.replace("/login");
+        router.replace("/login?next=/app/progress");
         return;
       }
       if (r.status === "needs-onboarding") {
-        router.replace("/onboarding");
+        router.replace("/app/onboarding");
         return;
       }
       const p = r.profile;
