@@ -20,9 +20,16 @@ import { ViewportLock } from "./ViewportLock";
  * never overflow the document and there is nothing to scroll. <ViewportLock />
  * belts-and-braces it by locking overflow while a gated screen is mounted.
  *
- * Do NOT "fix" this by making the shell `fixed inset-0` — that was tried, and
- * out of flow it loses its resolved height, so `main` (flex-1 min-h-0) flexes to
- * zero and the layout genuinely does collapse.
+ * `shrink-0` is load-bearing, not decoration. <body> is `flex flex-col`, so this
+ * div is a FLEX ITEM with the default flex-shrink: 1. Once <ViewportLock/> set
+ * overflow:hidden on body, body gained a definite height and this item was free
+ * to shrink below its 100svh — collapsing to its content: a ~40px header band,
+ * `main` flexed to zero, then the composer and tab bar. Which looks precisely
+ * like the chat screen vanishing, and cost several wrong diagnoses.
+ *
+ * Do NOT "fix" that by making the shell `fixed inset-0` either — that was tried,
+ * and out of flow it loses its resolved height, so `main` (flex-1 min-h-0)
+ * flexes to zero and the layout genuinely does collapse.
  */
 export function AppShell({
   children,
@@ -32,7 +39,7 @@ export function AppShell({
   sidebarFooter?: React.ReactNode;
 }) {
   return (
-    <div className="flex h-[100svh] overflow-hidden bg-canvas">
+    <div className="flex h-[100svh] shrink-0 overflow-hidden bg-canvas">
       <ViewportLock />
       <AppSidebar footer={sidebarFooter} />
 
