@@ -59,13 +59,13 @@ const FAQS: Array<{ q: string; a: string }> = [
 export default function FaqPage() {
   return (
     <>
-      <section className="bg-brand-700 py-14 sm:py-20">
+      <section className="border-b border-border-subtle py-14 sm:py-20">
         <Container width="wide">
           <div className="max-w-2xl">
-            <h1 className="text-3xl font-bold leading-tight tracking-tight text-white sm:text-4xl lg:text-5xl">
+            <h1 className="text-3xl font-bold leading-tight tracking-tight text-ink sm:text-4xl lg:text-5xl">
               Questions
             </h1>
-            <p className="mt-4 text-lg text-brand-50">
+            <p className="mt-4 text-lg text-ink-muted">
               Straight answers, including the ones that are not flattering.
             </p>
           </div>

@@ -4,74 +4,99 @@
    youly design tokens
 
    Two surfaces, one system: (site) = Persuade (marketing), /app = Operate.
-   The contrast floor is WCAG AA — 4.5:1 for text, 3:1 for non-text. Every value
-   below was picked to clear it. Before swapping one, check it: the palette this
-   replaced failed badly (text-gray-400 at 2.54:1 was the most-used class in the
-   app, and emerald-600 at 3.2:1 was every link).
+
+   PALETTE — deep petrol + warm neutrals, replacing the original emerald/cool-gray.
+   The emerald scheme wasn't merely dated, it was the category's stock answer: the
+   design catalog's canned palette for "Calorie & Nutrition Counter" is literally
+   #059669 emerald + an orange accent on a mint background, which is what this was.
+   Two things actually read as old — flat saturated colour in large full-bleed
+   blocks, and pure cool grays (#FFFFFF / #111827) for the neutrals.
+
+   So: a warm off-white ground (Pantone's 2026 Cloud Dancer family) instead of pure
+   white, warm charcoal ink instead of blue-black, and colour used for emphasis
+   rather than by the acre.
+
+   Every foreground/background pair below was computed against WCAG before being
+   written down — 27 pairs, all passing. The values are not interchangeable with
+   eyeballed ones; re-check the maths before changing any.
    ───────────────────────────────────────────────────────────────────────────── */
 
 @theme {
-  /* Brand ramp — emerald. Existing brand equity, kept deliberately.
-     brand-600 = primary fill. brand-700 = the only shade safe for small text
-     on white (4.9:1). brand-500 and lighter are fills and accents ONLY. */
-  --color-brand-50: #ecfdf5;
-  --color-brand-100: #d1fae5;
-  --color-brand-200: #a7f3d0;
-  --color-brand-300: #6ee7b7;
-  --color-brand-400: #34d399;
-  --color-brand-500: #10b981;
-  --color-brand-600: #059669;
-  --color-brand-700: #047857;
-  --color-brand-800: #065f46;
-  --color-brand-900: #064e3b;
-  --color-brand-950: #022c22;
+  /* Brand — deep petrol. Credible for health without being the default green, and
+     dark enough at 600+ to carry white text at 7:1 or better.
+     brand-600 = primary fill. brand-700 = text/links on light. brand-900/950 = the
+     deep blocks. 500 and lighter are fills and accents ONLY, never small text. */
+  --color-brand-50: #edf6f6;
+  --color-brand-100: #d3e9ea;
+  --color-brand-200: #a8d3d6;
+  --color-brand-300: #72b5ba;
+  --color-brand-400: #43939a;
+  --color-brand-500: #1f7580;
+  --color-brand-600: #0f5e6a;
+  --color-brand-700: #0b4a55;
+  --color-brand-800: #0a3c45;
+  --color-brand-900: #0a3038;
+  --color-brand-950: #052026;
 
-  /* Ink — text only. There is deliberately no lighter step than ink-muted:
-     anything fainter fails AA, which is how we got here. */
-  --color-ink: #111827;         /* headings                  ~16.9:1 on white */
-  --color-ink-body: #374151;    /* body copy                  ~10.4:1 */
-  --color-ink-muted: #4b5563;   /* secondary / captions        ~7.5:1 */
+  /* Accent — warm ember. The counterweight that stops the petrol reading clinical,
+     and the emphasis colour for anything that should feel energetic. */
+  --color-accent: #b4530f;
+  --color-accent-soft: #fdf1e7;
 
-  /* Surfaces + borders. border-subtle clears the 3:1 non-text floor;
-     the gray-100 hairline it replaces did not. */
+  /* Ink — warm charcoal, not blue-black. There is deliberately no step lighter
+     than ink-muted: anything fainter fails AA, which is how the old palette ended
+     up with text-gray-400 at 2.54:1 as its most-used class. */
+  --color-ink: #1c1917;        /* headings              16.5:1 on canvas */
+  --color-ink-body: #44403c;   /* body copy              9.7:1 */
+  --color-ink-muted: #57534e;  /* secondary, captions    7.2:1 */
+
+  /* Surfaces. Three roles, deliberately distinct:
+       canvas  — the page ground, warm off-white
+       surface — cards, which lift off the canvas by being pure white
+       sunken  — wells: segmented tracks, chips, avatars, hover states */
+  --color-canvas: #faf8f5;
   --color-surface: #ffffff;
-  --color-surface-sunken: #f9fafb;
-  --color-surface-raised: #ffffff;
-  --color-border-subtle: #e5e7eb;
-  --color-border-strong: #d1d5db;
+  --color-surface-sunken: #f2ede6;
 
-  /* Data series — calories / protein / over-target. Each is paired with a text
-     label at every use site, because colour alone is not a signal. */
-  --color-data-calories: #059669;
-  --color-data-protein: #2563eb;
-  --color-data-over: #d97706;
-  --color-data-grid: #e5e7eb;
-  --color-data-axis: #4b5563;
+  /* Borders. subtle = decorative hairlines; strong = input and control boundaries,
+     which must clear 3:1 to be perceivable (the old #e5e7eb managed 1.56). */
+  --color-border-subtle: #e7e1d8;
+  --color-border-strong: #8f8271;
 
-  --color-danger: #dc2626;
-  --color-danger-soft: #fef2f2;
+  /* Data series. Petrol vs ochre is chosen for colour-vision deficiency: teal and
+     amber sit on the blue-yellow axis, which survives red-green blindness, whereas
+     teal against blue would not. Every use is paired with a text label regardless. */
+  --color-data-calories: #0f5e6a;
+  --color-data-protein: #a87200;
+  --color-data-over: #b4530f;
+  --color-data-grid: #e7e1d8;
+  --color-data-axis: #57534e;
 
-  /* Elevation — four steps, no ad-hoc shadows. */
-  --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-raised: 0 4px 12px -2px rgb(0 0 0 / 0.08);
-  --shadow-cta: 0 8px 20px -6px rgb(5 150 105 / 0.45);
-  --shadow-sheet: 0 -8px 40px -8px rgb(0 0 0 / 0.25);
+  --color-danger: #b42318;
+  --color-danger-soft: #fef3f2;
 
-  /* Motion. Enter with ease-out, exit with ease-in at ~65% of the enter
-     duration so dismissals feel responsive. */
+  /* Elevation. Shadows are warm-tinted rather than neutral black, so cards sit on
+     the warm ground instead of looking cut out of it. */
+  --shadow-card: 0 1px 2px 0 rgb(68 64 60 / 0.06);
+  --shadow-raised: 0 4px 14px -3px rgb(68 64 60 / 0.10);
+  --shadow-cta: 0 8px 20px -6px rgb(15 94 106 / 0.35);
+  --shadow-sheet: 0 -8px 40px -8px rgb(28 25 23 / 0.22);
+
+  /* Motion: enter with ease-out, exit with ease-in at ~65% of the enter duration
+     so dismissals feel responsive. */
   --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
 }
 
 @theme inline {
-  /* The Arial bug lived here: body had a hardcoded Arial stack while
-     `font-sans` was never used as a class, so three next/font families
-     downloaded and none of them painted. DM Sans is now the one typeface. */
+  /* The Arial bug lived here: body had a hardcoded Arial stack while `font-sans`
+     was never used as a class, so three next/font families downloaded and none of
+     them painted. DM Sans is now the one typeface. */
   --font-sans: var(--font-dm-sans);
 }
 
-/* Safe-area utilities — replaces the hardcoded pt-14 / pb-10 that faked
-   iOS chrome at a single fixed phone size. */
+/* Safe-area utilities — replaces the hardcoded pt-14 / pb-10 that faked iOS chrome
+   at a single fixed phone size. */
 @utility pt-safe {
   padding-top: env(safe-area-inset-top);
 }
@@ -85,7 +110,6 @@
   padding-right: env(safe-area-inset-right);
 }
 
-/* Duration tokens usable as plain CSS. */
 :root {
   --duration-fast: 150ms;
   --duration-base: 200ms;
@@ -93,14 +117,16 @@
 }
 
 body {
-  background: var(--color-surface);
+  /* The warm ground is the default, so a page only sets a background when it
+     wants to depart from it. */
+  background: var(--color-canvas);
   color: var(--color-ink-body);
   -webkit-font-smoothing: antialiased;
 }
 
-/* One visible focus style for the whole product. Previously ~60 buttons and
-   every link had no focus style at all, and inputs used a ring that measured
-   2.1:1 — under the 3:1 non-text minimum. */
+/* One visible focus style for the whole product. Previously ~60 buttons and every
+   link had no focus style at all, and inputs used a ring measuring 2.1:1 — under
+   the 3:1 non-text minimum. */
 :focus-visible {
   outline: 2px solid var(--color-brand-700);
   outline-offset: 2px;

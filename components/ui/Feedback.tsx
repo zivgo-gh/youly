@@ -5,7 +5,7 @@ import { Spinner } from "./Button";
 /** Replaces 4 byte-identical full-page "Loading..." blocks. */
 export function LoadingScreen({ label = "Loading" }: { label?: string }) {
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-surface-sunken">
+    <div className="flex min-h-dvh items-center justify-center bg-canvas">
       {/* Announced politely so a screen reader knows a wait is in progress. */}
       <p
         role="status"
@@ -55,7 +55,7 @@ export function Badge({
     <span
       className={cn(
         "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold",
-        tone === "neutral" && "bg-surface-sunken text-ink-muted",
+        tone === "neutral" && "bg-canvas text-ink-muted",
         tone === "brand" && "bg-brand-50 text-brand-800",
         tone === "warn" && "bg-amber-50 text-amber-800",
         tone === "danger" && "bg-danger-soft text-danger",
