@@ -184,12 +184,40 @@ Old top-level paths (`/chat`, `/progress`, `/meals`, `/onboarding`, `/consent`, 
 
 ### Design system
 
-`app/globals.css` holds the whole token layer — brand ramp, `ink`/`surface`/`border`,
-data-series colours, 4 elevation steps, motion easings, `pt-safe`/`pb-safe`, one
-global `:focus-visible`, and a `prefers-reduced-motion` block. Values were chosen to
-clear WCAG AA; the palette they replaced did not (`text-gray-400` at 2.54:1 was the
-most-used class in the app, and `emerald-600` at 3.2:1 was every link). **Use the
-semantic tokens, not raw Tailwind colour classes.**
+`app/globals.css` holds the whole token layer — brand ramp, `ink`/`canvas`/`surface`/
+`border`, data-series colours, 4 elevation steps, motion easings, `pt-safe`/`pb-safe`,
+one global `:focus-visible`, and a `prefers-reduced-motion` block. **Use the semantic
+tokens, not raw Tailwind colour classes.**
+
+**Palette: deep petrol + warm neutrals.** The original emerald scheme was the
+category's stock answer — the design catalogue's canned palette for "Calorie &
+Nutrition Counter" is literally `#059669` emerald with an orange accent on a mint
+background, which is what this was. What reads as dated is flat saturated colour in
+large full-bleed blocks plus pure cool neutrals, not the hue, so all three changed:
+
+| token | value | role |
+|---|---|---|
+| `canvas` | `#FAF8F5` | page ground, warm off-white (Pantone 2026 "Cloud Dancer" family) |
+| `surface` | `#FFFFFF` | cards, which lift off the canvas |
+| `surface-sunken` | `#F2EDE6` | wells: chips, tracks, avatars, hover |
+| `ink` / `ink-body` / `ink-muted` | `#1C1917` / `#44403C` / `#57534E` | warm charcoal, not blue-black |
+| `brand-600` / `700` / `900` / `950` | `#0F5E6A` / `#0B4A55` / `#0A3038` / `#052026` | petrol: fill / text / blocks |
+| `accent` | `#B4530F` | warm ember, stops the petrol reading clinical |
+| `border-subtle` / `border-strong` | `#E7E1D8` / `#8F8271` | hairline / control boundary |
+
+Three things are load-bearing and shouldn't be "tidied":
+
+- **`canvas` vs `surface-sunken` are different roles.** They were one token once; a
+  well the same colour as the page is invisible against a white card.
+- **`border-strong` is dark on purpose.** Input and control boundaries must clear
+  3:1; the earlier `#E5E7EB` managed 1.56:1.
+- **Data series are petrol and ochre, not petrol and blue.** Teal-vs-amber sits on
+  the blue-yellow axis and survives red-green colour blindness; teal-vs-blue does
+  not. Every use is paired with a text label anyway.
+
+Colour is used sparingly by area: only the homepage hero and closing CTA are deep
+blocks. Five full-bleed bands was the biggest dated signal. Contrast was computed,
+not eyeballed — 41 pairs, all passing — so re-check the maths before changing a value.
 
 DM Sans is the single typeface. `body` was previously pinned to
 `font-family: Arial, Helvetica` while `font-sans` was never used as a class, so the
