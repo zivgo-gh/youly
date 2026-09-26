@@ -53,9 +53,14 @@ export function ProgressBar({
   if (compact) {
     return (
       <div className="min-w-0">
-        <p className="truncate text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
-          {label}
-        </p>
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="truncate text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
+            {label}
+          </p>
+          <p className="tnum shrink-0 text-[11px] text-ink-muted">
+            {value.toLocaleString()}/{target.toLocaleString()}
+          </p>
+        </div>
         <p
           className={cn(
             "tnum mt-0.5 truncate text-[15px] font-semibold",
@@ -67,9 +72,6 @@ export function ProgressBar({
             : `${remaining.toLocaleString()} ${unit} left`}
         </p>
         <div className="mt-1.5">{bar}</div>
-        <p className="tnum mt-1 truncate text-[11px] text-ink-muted">
-          {value.toLocaleString()} of {target.toLocaleString()}
-        </p>
       </div>
     );
   }

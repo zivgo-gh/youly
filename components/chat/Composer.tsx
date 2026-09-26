@@ -53,7 +53,7 @@ export function Composer({
   }
 
   return (
-    <div className="border-t border-border-subtle bg-surface px-4 pt-2 pb-safe">
+    <div className="border-t border-border-subtle bg-surface px-4 pt-1.5 pb-safe">
       {/* Live region so a screen reader hears that dictation started and what
           was heard — previously neither was announced at all. */}
       <div aria-live="polite" className="min-h-0">
@@ -118,7 +118,7 @@ export function Composer({
         </form>
       ) : null}
 
-      <div className="flex items-center justify-center gap-6 py-2">
+      <div className="flex items-center justify-center gap-6 pb-1.5 pt-0.5">
         <button
           type="button"
           onClick={() => setShowInput((v) => !v)}

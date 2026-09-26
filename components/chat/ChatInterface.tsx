@@ -23,6 +23,7 @@ import { IconButton } from "@/components/ui/IconButton";
 import { Icon } from "@/components/ui/Icon";
 import { ProgressBar } from "@/components/ui/Metric";
 import { TypingDots } from "@/components/ui/Feedback";
+import { AccountMenuTrigger } from "@/components/app/AccountMenu";
 
 const MEAL_ORDER: MealType[] = ["breakfast", "lunch", "dinner", "snack"];
 const MEAL_LABELS: Record<MealType, string> = {
@@ -326,8 +327,8 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/* Day navigation + macro strip. Hidden at xl, where the rail covers it. */}
-        <div className="shrink-0 border-b border-border-subtle bg-surface px-4 pb-3 pt-2 xl:hidden">
-          <div className="mx-auto flex max-w-3xl items-center justify-between">
+        <div className="shrink-0 border-b border-border-subtle bg-surface px-4 pb-2.5 pt-2 pt-safe xl:hidden">
+          <div className="relative mx-auto flex max-w-3xl items-center justify-center gap-1">
             <IconButton
               icon="chevron-left"
               label="Previous day"
@@ -358,6 +359,12 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
               disabled={!nextDate}
               onClick={() => nextDate && setViewDate(nextDate)}
             />
+            {/* Absolutely positioned so it doesn't shift the date off centre.
+                Hidden from lg up, where the sidebar's footer already carries the
+                account button and this strip is still visible until xl. */}
+            <div className="absolute right-0 lg:hidden">
+              <AccountMenuTrigger compact />
+            </div>
           </div>
 
           <div className="mx-auto mt-1 grid max-w-3xl grid-cols-2 gap-x-5 gap-y-3">
@@ -380,13 +387,13 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
           </div>
 
           {viewedLog.entries.length > 0 ? (
-            <div className="mx-auto mt-3 max-w-3xl border-t border-border-subtle pt-2">
+            <div className="mx-auto mt-2 max-w-3xl border-t border-border-subtle pt-1">
               <button
                 type="button"
                 onClick={() => setShowFoodLog((v) => !v)}
                 aria-expanded={showFoodLog}
                 aria-controls="food-log-panel"
-                className="flex w-full min-h-9 items-center justify-center gap-1.5 text-sm font-semibold text-ink-muted transition-colors hover:text-ink"
+                className="flex min-h-8 w-full items-center justify-center gap-1.5 text-[13px] font-semibold text-ink-muted transition-colors hover:text-ink"
               >
                 <Icon name={showFoodLog ? "chevron-up" : "chevron-down"} size={16} />
                 {`${viewedLog.entries.length} item${viewedLog.entries.length === 1 ? "" : "s"} logged`}
@@ -469,7 +476,7 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
         ) : null}
 
         {/* Messages — the only scrolling region on this screen. */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:py-6">
           <div className="mx-auto max-w-3xl space-y-5">
             {displayMessages.length === 0 && !streamingText ? (
               <div className="mt-12 flex flex-col items-center gap-3 px-6 text-center">

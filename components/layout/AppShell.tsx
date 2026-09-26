@@ -1,6 +1,5 @@
 import { AppSidebar, AppTabBar } from "./AppNav";
-import { Wordmark } from "@/components/brand/Wordmark";
-import { AccountMenuTrigger } from "@/components/app/AccountMenu";
+import { AppMobileHeader } from "./AppMobileHeader";
 
 /**
  * The gated app's frame: sidebar from lg up, mobile header plus bottom tab bar
@@ -21,12 +20,9 @@ export function AppShell({
       <AppSidebar footer={sidebarFooter} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Mobile header. The sidebar carries the wordmark and account on lg+, so
-            this is hidden there rather than duplicated. */}
-        <header className="flex shrink-0 items-center justify-between border-b border-border-subtle bg-surface px-4 py-2.5 pt-safe lg:hidden">
-          <Wordmark size="sm" href="/app" />
-          <AccountMenuTrigger compact />
-        </header>
+        {/* Hidden entirely on /app/chat, which folds the account button into its
+            own date row to give the conversation another ~50px. */}
+        <AppMobileHeader />
 
         {/* Does not scroll itself — chat pins a composer and scrolls only its
             message list, so each screen opts into scrolling explicitly. */}
