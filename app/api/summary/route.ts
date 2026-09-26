@@ -1,13 +1,34 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { anthropic } from "@/lib/ai";
-import type { UserProfile, DailyLogs } from "@/lib/types";
+import { requireApiUser } from "@/lib/auth-server";
+import { loadProfileFrom, loadLogsFrom } from "@/lib/db-core";
 import { weeklyStats, computeTrajectory, dateRange } from "@/lib/calories";
 
 export const runtime = "nodejs";
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const { profile, logs }: { profile: UserProfile; logs: DailyLogs } = body;
+export async function POST() {
+  // This was an entirely open Anthropic proxy that also built its summary from
+  // whatever profile and logs the caller posted.
+  const auth = await requireApiUser();
+  if (!auth.ok) return auth.response;
+  const { supabase, uid } = auth;
+
+  // Read under RLS. Besides closing the hole, this fixes a correctness bug: a
+  // stale localStorage cache produced a weekly summary describing out-of-date logs.
+  let profile;
+  let logs;
+  try {
+    [profile, logs] = await Promise.all([
+      loadProfileFrom(supabase, uid),
+      loadLogsFrom(supabase, uid),
+    ]);
+  } catch {
+    return NextResponse.json({ error: "could not load your data" }, { status: 503 });
+  }
+
+  if (!profile) {
+    return NextResponse.json({ error: "needs-onboarding" }, { status: 409 });
+  }
 
   const stats = weeklyStats(logs, 7);
   const trajectory = computeTrajectory(logs, profile);

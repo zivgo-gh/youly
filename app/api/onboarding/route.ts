@@ -1,16 +1,31 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { anthropic, buildOnboardingSystemPrompt } from "@/lib/ai";
-import type { ChatMessage } from "@/lib/types";
+import { requireApiUser } from "@/lib/auth-server";
+import { AVATARS } from "@/lib/types";
+import type { ChatMessage, CoachAvatar } from "@/lib/types";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
+  // This route proxies to Anthropic. Unauthenticated, it was an open endpoint
+  // that let anyone on the internet spend ANTHROPIC_API_KEY.
+  const auth = await requireApiUser();
+  if (!auth.ok) return auth.response;
+
   const body = await req.json();
-  const { messages, avatar, clientTime }: { messages: ChatMessage[]; avatar: import("@/lib/types").CoachAvatar; clientTime?: string } = body;
+  const { messages, avatar, clientTime }: { messages: ChatMessage[]; avatar?: CoachAvatar; clientTime?: string } = body;
+
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return NextResponse.json({ error: "messages required" }, { status: 400 });
+  }
+
+  // Never interpolate an unvalidated value into the system prompt.
+  const safeAvatar: CoachAvatar =
+    avatar && avatar in AVATARS ? avatar : "alex";
 
   const now = clientTime ? new Date(clientTime) : new Date();
-  const systemPrompt = buildOnboardingSystemPrompt(now, avatar ?? "alex");
+  const systemPrompt = buildOnboardingSystemPrompt(now, safeAvatar);
 
   const anthropicMessages: Anthropic.MessageParam[] = messages.map((m) => ({
     role: m.role,

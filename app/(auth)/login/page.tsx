@@ -1,0 +1,152 @@
+"use client";
+
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { FunnelShell } from "@/components/layout/FunnelShell";
+import { Button } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
+
+/**
+ * `useSearchParams` makes a client component bail out of prerendering, so it has to
+ * sit under a Suspense boundary whose fallback does NOT call it.
+ *
+ * The first version of this file wrapped <LoginForm> in a boundary whose fallback
+ * was <LoginForm> — which calls useSearchParams too, so the fallback bailed out
+ * as well and the boundary achieved nothing. The build failed with
+ * "useSearchParams() should be wrapped in a suspense boundary at page /login".
+ *
+ * LoginShell is the single markup source; the fallback renders it inert, so the
+ * prerendered HTML and the hydrated page can't drift apart.
+ */
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginShell pending />}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
+  const params = useSearchParams();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Only ever honour an internal app path — an open redirect here would let a
+  // crafted link bounce a freshly-authenticated user to another origin.
+  const raw = params?.get("next") ?? "";
+  const next = raw.startsWith("/app") ? raw : "";
+
+  // Surfaced by /auth/callback when the provider hands back an error instead of a
+  // code, so a cancelled or failed sign-in explains itself.
+  const callbackError = params?.get("error");
+  const message =
+    error ?? (callbackError ? "Sign-in didn't complete. Please try again." : null);
+
+  async function signInWithGoogle() {
+    setPending(true);
+    setError(null);
+    const supabase = createSupabaseBrowserClient();
+    const callback = new URL("/auth/callback", window.location.origin);
+    if (next) callback.searchParams.set("next", next);
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: callback.toString() },
+    });
+
+    if (error) {
+      setPending(false);
+      setError("We couldn't start sign-in. Please try again.");
+    }
+  }
+
+  return (
+    <LoginShell pending={pending} message={message} onSignIn={signInWithGoogle} />
+  );
+}
+
+function LoginShell({
+  pending,
+  message,
+  onSignIn,
+}: {
+  pending?: boolean;
+  message?: string | null;
+  onSignIn?: () => void;
+}) {
+  return (
+    <FunnelShell
+      title={
+        <>
+          Sign in to meet
+          <br />
+          your coach.
+        </>
+      }
+      subtitle="It takes less than a minute."
+      footer={
+        <p className="text-center text-xs leading-relaxed text-ink-muted">
+          By continuing you agree to our{" "}
+          <a href="/terms" className="font-medium text-brand-700 underline">
+            Terms of Use
+          </a>{" "}
+          and{" "}
+          <a href="/privacy" className="font-medium text-brand-700 underline">
+            Privacy Policy
+          </a>
+          .
+        </p>
+      }
+    >
+      {/* The badge that used to sit here claimed "Your health data stays on your
+          device", which stopped being true when the app moved to Postgres. */}
+      <div className="flex items-start gap-3 rounded-2xl bg-brand-50 px-4 py-3">
+        <span className="mt-0.5 text-brand-700">
+          <Icon name="lock" />
+        </span>
+        <div>
+          <p className="text-sm font-semibold text-brand-800">
+            Your data is yours alone
+          </p>
+          <p className="mt-0.5 text-sm text-ink-muted">
+            Encrypted in transit, readable only by your account, and never sold or
+            shared.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-8">
+        <Button
+          variant="secondary"
+          size="lg"
+          fullWidth
+          loading={pending}
+          // No handler in the prerendered fallback — it hydrates into the real one.
+          disabled={!onSignIn}
+          onClick={onSignIn}
+        >
+          {!pending ? <GoogleMark /> : null}
+          Continue with Google
+        </Button>
+
+        {message ? (
+          <p role="alert" className="mt-3 text-center text-sm font-medium text-danger">
+            {message}
+          </p>
+        ) : null}
+      </div>
+    </FunnelShell>
+  );
+}
+
+function GoogleMark() {
+  return (
+    <svg aria-hidden="true" focusable="false" width="20" height="20" viewBox="0 0 24 24">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+    </svg>
+  );
+}

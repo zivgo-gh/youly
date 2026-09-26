@@ -1,30 +1,35 @@
 import { NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { anthropic, buildSystemPrompt, CHAT_TOOLS } from "@/lib/ai";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { requireApiUser } from "@/lib/auth-server";
 import { executeChatTool, getSavedMealsSummary } from "@/lib/chat-tools";
-import type { UserProfile, DailyLogs, ChatMessage } from "@/lib/types";
+import { loadProfileFrom, loadLogsFrom } from "@/lib/db-core";
+import type { ChatMessage } from "@/lib/types";
+
+const ALLOWED_MEDIA = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
+type AllowedMedia = (typeof ALLOWED_MEDIA)[number];
+
+// ~4.5MB is the Vercel request-body ceiling; the client already downscales to a
+// 1280px JPEG, so anything near this is not a label photo.
+const MAX_IMAGE_B64 = 4_000_000;
+
+function json(body: unknown, status: number) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return new Response(JSON.stringify({ error: "unauthenticated" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-  const uid = user.id;
+  const auth = await requireApiUser();
+  if (!auth.ok) return auth.response;
+  const { supabase, uid } = auth;
 
   const body = await req.json();
   const {
     messages,
-    profile,
-    logs,
     clientTime,
     clientDate,
     clientHour,
@@ -32,27 +37,56 @@ export async function POST(req: NextRequest) {
     image,
   }: {
     messages: ChatMessage[];
-    profile: UserProfile;
-    logs: DailyLogs;
     clientTime?: string;
     clientDate?: string;
     clientHour?: number;
     clientTimeDisplay?: string;
-    image?: { data: string; mediaType: "image/jpeg" | "image/png" | "image/webp" | "image/gif" };
+    image?: { data: string; mediaType: AllowedMedia };
   } = body;
+
+  // The client legitimately owns the message list and its own clock. It does NOT
+  // own the profile or the logs — those used to arrive in this body, which meant
+  // anyone with a session could claim any targets or any eating history.
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return json({ error: "messages required" }, 400);
+  }
+  for (const m of messages) {
+    if (
+      (m?.role !== "user" && m?.role !== "assistant") ||
+      typeof m?.content !== "string"
+    ) {
+      return json({ error: "malformed message" }, 400);
+    }
+  }
+  if (image) {
+    if (!ALLOWED_MEDIA.includes(image.mediaType)) {
+      return json({ error: "unsupported image type" }, 400);
+    }
+    if (typeof image.data !== "string" || image.data.length > MAX_IMAGE_B64) {
+      return json({ error: "image too large" }, 413);
+    }
+  }
 
   const now = clientTime ? new Date(clientTime) : new Date();
   const today = clientDate || now.toISOString().slice(0, 10);
 
-  // coachStyle is the one profile field the model self-updates via tools — read the
-  // freshest value from the DB so mid-session calibration persists into the next turn.
+  // Read under RLS. This also fixes a real correctness bug: a stale localStorage
+  // cache used to produce coaching based on out-of-date logs. And reading the whole
+  // profile row removes the coach_style-only patch this used to need.
+  let profile;
+  let logs;
   try {
-    const { data: prow } = await supabase.from("profiles").select("coach_style").eq("user_id", uid).maybeSingle();
-    const cs = (prow as { coach_style?: UserProfile["coachStyle"] } | null)?.coach_style;
-    if (cs && profile) profile.coachStyle = cs;
+    [profile, logs] = await Promise.all([
+      loadProfileFrom(supabase, uid),
+      loadLogsFrom(supabase, uid),
+    ]);
   } catch {
-    /* fall back to the client-provided profile */
+    return json({ error: "could not load your data" }, 503);
   }
+
+  // Previously `profile` could arrive undefined and buildSystemPrompt would
+  // dereference profile.coachStyle, throwing a 500 mid-stream.
+  if (!profile) return json({ error: "needs-onboarding" }, 409);
 
   // Saved meals are loaded server-side so the model can resolve "log lunch #2"
   // regardless of client state. Kept in the dynamic (uncached) prompt part.

@@ -1,58 +1,60 @@
-import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { createSupabaseProxyClient } from "@/lib/supabase-server";
+
+// Everything under this prefix requires a session. Using a prefix rather than a
+// list of page paths is the point: /meals used to be unprotected purely because
+// somebody forgot to add it to an array. A new gated page can no longer be born
+// unprotected.
+const GATED_PREFIX = "/app";
+
+// Not `startsWith("/app")` — that would also swallow a future /approach or
+// /apply marketing page.
+function isGated(pathname: string) {
+  return pathname === GATED_PREFIX || pathname.startsWith(`${GATED_PREFIX}/`);
+}
 
 export async function proxy(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+  const { supabase, getResponse } = createSupabaseProxyClient(request);
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
-
-  // Refresh the session so it doesn't expire
+  // Also refreshes the session cookie as a side effect, which is why the matcher
+  // below must keep covering /app/* and /auth/*.
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
 
-  // Protected routes — redirect to /intro if not authenticated
-  const protectedRoutes = ["/chat", "/progress"];
-  if (!user && protectedRoutes.some((r) => pathname.startsWith(r))) {
+  if (!user && isGated(pathname)) {
     const url = request.nextUrl.clone();
-    url.pathname = "/intro";
+    url.pathname = "/login";
+    url.search = "";
+    // Come back to where they were actually headed after signing in.
+    url.searchParams.set("next", `${pathname}${search}`);
     return NextResponse.redirect(url);
   }
 
-  // Logged-in users visiting /login, /consent, or /intro → send to /
-  const preAuthRoutes = ["/login", "/consent", "/intro"];
-  if (user && preAuthRoutes.some((r) => pathname === r)) {
+  if (user && pathname === "/login") {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = "/app";
+    url.search = "";
     return NextResponse.redirect(url);
   }
 
-  return supabaseResponse;
+  return getResponse();
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  // Deliberately narrow. Proxy is Node-runtime in Next 16 and cannot be moved to
+  // the edge, so every matched request is a serverless invocation plus a Supabase
+  // getUser() round-trip. The previous matcher was "every path except assets",
+  // which meant paying that on every crawler hit of every marketing page — and on
+  // /robots.txt.
+  //
+  // "/" is intentionally absent: the homepage is static marketing for everyone,
+  // signed in or not, and is served straight from the CDN.
+  //
+  // api/ is also absent, which is why every route handler authenticates itself
+  // via lib/auth-server.ts. Per the Next 16 proxy docs, authorization must never
+  // depend on the proxy alone.
+  matcher: ["/app/:path*", "/login", "/auth/:path*"],
 };

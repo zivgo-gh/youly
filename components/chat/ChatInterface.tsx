@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { useStreamingChat, type ChatImage } from "@/hooks/useStreamingChat";
-import { seedTestData } from "@/lib/seed";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { MessageBubble } from "./MessageBubble";
-import { MacroSidebar } from "./MacroSidebar";
+import { MacroPanel } from "./MacroPanel";
+import { Composer } from "./Composer";
 import { FirstRunTour } from "./FirstRunTour";
 import type { UserProfile, DailyLogs, ChatMessage, FoodEntry, MealType } from "@/lib/types";
 import type { Trajectory } from "@/lib/calories";
@@ -13,10 +13,16 @@ import { computeTrajectory, todayStr, daysBetween } from "@/lib/calories";
 import { getAllLogs, saveChatHistory, getChatHistory } from "@/lib/storage";
 import { loadChatHistoryDb, loadChatDatesDb, saveChatHistoryDb } from "@/lib/chat-db";
 import { loadLogs, correctFoodEntryDb, deleteFoodEntryDb } from "@/lib/db";
-import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { v4 as uuid } from "uuid";
 import { AVATARS } from "@/lib/types";
 import { CoachPhoto } from "@/components/shared/CoachPhoto";
+import { Sheet } from "@/components/ui/Sheet";
+import { Button } from "@/components/ui/Button";
+import { Field, Input } from "@/components/ui/Field";
+import { IconButton } from "@/components/ui/IconButton";
+import { Icon } from "@/components/ui/Icon";
+import { ProgressBar } from "@/components/ui/Metric";
+import { TypingDots } from "@/components/ui/Feedback";
 
 const MEAL_ORDER: MealType[] = ["breakfast", "lunch", "dinner", "snack"];
 const MEAL_LABELS: Record<MealType, string> = {
@@ -80,35 +86,23 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
   const todayLog = useMemo(() => logs[todayStr()] ?? { entries: [], totalCalories: 0, totalProtein: 0 }, [logs]);
   const [input, setInput] = useState("");
   const [interimText, setInterimText] = useState("");
-  const [showInput, setShowInput] = useState(false);
   const [showTour, setShowTour] = useState(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("youly_tour_done") !== "1";
   });
-  const [showAccountMenu, setShowAccountMenu] = useState(false);
-  const [userEmail, setUserEmail] = useState<string>("");
   const [viewDate, setViewDate] = useState(todayStr());
   const [pastMessages, setPastMessages] = useState<ChatMessage[]>([]);
   // Days with stored history. Sourced from the DB so it survives a localStorage wipe.
   const [chatDates, setChatDates] = useState<string[]>([]);
   const [showFoodLog, setShowFoodLog] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [editingEntry, setEditingEntry] = useState<{ date: string; entry: FoodEntry } | null>(null);
   const [editForm, setEditForm] = useState({ description: "", calories: "", protein: "" });
-  const [copyStatus, setCopyStatus] = useState<"idle" | "copied">("idle");
   const bottomRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const avatar = AVATARS[profile.coachAvatar];
 
   const isViewingToday = viewDate === todayStr();
   const isEditable = daysBetween(viewDate) <= 3;
-
-  useEffect(() => {
-    const supabase = createSupabaseBrowserClient();
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user?.email) setUserEmail(data.user.email);
-    });
-  }, []);
 
   const refreshLog = useCallback(async () => {
     // DB is the source of truth; fall back to the local cache if we have no uid.
@@ -170,10 +164,10 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
       endpoint: "/api/chat",
       getBody: (msgs, image) => {
         const now = new Date();
+        // profile and logs are deliberately NOT sent — /api/chat reads them under
+        // RLS. The client owns only the message list and its own clock.
         return {
           messages: msgs,
-          profile,
-          logs,
           clientTime: now.toISOString(),
           clientDate: todayStr(),
           clientHour: now.getHours(),
@@ -265,16 +259,16 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
     [isLoading, sendMessage]
   );
 
-  const handlePhoto = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      e.target.value = ""; // allow picking the same file again
-      if (!file || isLoading) return;
+  const handlePhotoFile = useCallback(
+    async (file: File) => {
+      if (isLoading) return;
+      setPhotoError(null);
       try {
         const image = await fileToResizedImage(file);
         await sendMessage("", image);
       } catch {
-        alert("Couldn't read that image. Try another photo.");
+        // Was an alert(), which can't be styled and can't be dismissed by keyboard.
+        setPhotoError("We couldn't read that image. Try another photo.");
       }
     },
     [isLoading, sendMessage]
@@ -295,22 +289,6 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [displayMessages, streamingText]);
-
-  const handleSubmit = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    submitMessage(input);
-  };
-
-  const copyChat = () => {
-    const header = `Youly Chat — ${viewDate}\n${"─".repeat(30)}\n\n`;
-    const body = displayMessages
-      .map(m => `${m.role === "user" ? "Me" : avatar.name}: ${m.content}`)
-      .join("\n\n");
-    navigator.clipboard.writeText(header + body).then(() => {
-      setCopyStatus("copied");
-      setTimeout(() => setCopyStatus("idle"), 1500);
-    });
-  };
 
   const openEdit = (entry: FoodEntry) => {
     setEditingEntry({ date: viewDate, entry });
@@ -333,351 +311,235 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 relative">
-      {/* Sidebar — desktop only */}
-      <aside className="hidden md:flex flex-col w-72 bg-white border-r border-gray-100 overflow-y-auto">
-        <div className="p-4 border-b border-gray-100 flex items-center gap-3">
+    <div className="flex min-h-0 flex-1 flex-col xl:flex-row">
+      {/* Macro rail — xl and up, so it never competes with the app sidebar at lg. */}
+      <aside className="hidden w-72 shrink-0 overflow-y-auto border-r border-border-subtle bg-surface xl:block">
+        <div className="flex items-center gap-3 border-b border-border-subtle p-4">
           <CoachPhoto avatar={profile.coachAvatar} size={36} />
-          <div>
-            <p className="text-base font-black tracking-tight uppercase text-emerald-600">Youly</p>
-            <p className="text-xs text-gray-400">with {avatar.name}</p>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-ink">{avatar.name}</p>
+            <p className="text-xs text-ink-muted">Your coach</p>
           </div>
         </div>
-        <MacroSidebar profile={profile} todayLog={todayLog} trajectory={trajectory} />
-        <div className="mt-auto p-4 border-t border-gray-100 space-y-2">
-          <a href="/progress" className="block text-center text-sm text-emerald-600 hover:underline">
-            View progress →
-          </a>
-          <a href="/meals" className="block text-center text-sm text-emerald-600 hover:underline">
-            Saved meals →
-          </a>
-        </div>
+        <MacroPanel profile={profile} todayLog={todayLog} trajectory={trajectory} />
       </aside>
 
-      {/* Chat area */}
-      <main className="flex-1 flex flex-col min-w-0">
-        {/* Mobile header */}
-        <header className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100">
-          <span className="text-lg font-black tracking-tight uppercase text-emerald-600">Youly</span>
-          <div className="flex items-center gap-4">
-            <a href="/progress" className="text-sm text-emerald-600">Progress →</a>
-            <button
-              onClick={() => setShowAccountMenu(true)}
-              className="w-8 h-8 rounded-full bg-emerald-500 text-white text-sm font-bold flex items-center justify-center"
-              aria-label="Account menu"
-            >
-              {profile.name?.charAt(0).toUpperCase() ?? "?"}
-            </button>
-          </div>
-        </header>
-
-        {/* Mobile macro strip */}
-        <div className="md:hidden bg-white border-b border-gray-100 px-4 pt-2 pb-3">
-          {/* Date navigation */}
-          <div className="flex items-center justify-between mb-2">
-            <button
-              onClick={() => prevDate && setViewDate(prevDate)}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Day navigation + macro strip. Hidden at xl, where the rail covers it. */}
+        <div className="shrink-0 border-b border-border-subtle bg-surface px-4 pb-3 pt-2 xl:hidden">
+          <div className="mx-auto flex max-w-3xl items-center justify-between">
+            <IconButton
+              icon="chevron-left"
+              label="Previous day"
+              size={36}
               disabled={!prevDate}
-              className="w-7 h-7 flex items-center justify-center text-gray-400 disabled:opacity-30"
-              aria-label="Previous day"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z"/>
-              </svg>
-            </button>
+              onClick={() => prevDate && setViewDate(prevDate)}
+            />
             <div className="flex items-center gap-2">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400">
-                {isViewingToday ? `${formatNavDate(viewDate)} — Today` : formatNavDate(viewDate)}
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted">
+                {isViewingToday
+                  ? `${formatNavDate(viewDate)} — Today`
+                  : formatNavDate(viewDate)}
               </p>
-              {!isViewingToday && (
+              {!isViewingToday ? (
                 <button
+                  type="button"
                   onClick={() => setViewDate(todayStr())}
-                  className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 rounded-full px-2 py-0.5"
+                  className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-800"
                 >
-                  Today →
+                  Today
                 </button>
-              )}
+              ) : null}
             </div>
-            <button
-              onClick={() => nextDate && setViewDate(nextDate)}
+            <IconButton
+              icon="chevron-right"
+              label="Next day"
+              size={36}
               disabled={!nextDate}
-              className="w-7 h-7 flex items-center justify-center text-gray-400 disabled:opacity-30"
-              aria-label="Next day"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/>
-              </svg>
-            </button>
+              onClick={() => nextDate && setViewDate(nextDate)}
+            />
           </div>
 
-          <div className="flex gap-4 items-start">
-            {/* Calories */}
-            <div className="flex-1">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 mb-0.5">Calories</p>
-              <div className="flex items-baseline gap-1.5">
-                <span
-                  className="font-bold text-gray-900 tabular-nums leading-none"
-                  style={{ fontFamily: "var(--font-dm-sans)", fontSize: "2rem" }}
-                >
-                  {viewedLog.totalCalories}
-                </span>
-                <span className="text-sm font-semibold text-gray-400">/ {profile.dailyCalorieTarget} kcal</span>
-              </div>
-              <div className="mt-1.5 h-2 rounded-full bg-gray-100 overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${viewedLog.totalCalories > profile.dailyCalorieTarget ? "bg-orange-400" : "bg-emerald-500"}`}
-                  style={{ width: `${Math.min(viewedLog.totalCalories / profile.dailyCalorieTarget, 1) * 100}%` }}
-                />
-              </div>
-            </div>
-            <div className="w-px h-10 bg-gray-100 self-center" />
-            {/* Protein */}
-            <div className="flex-1">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-blue-600 mb-0.5">Protein</p>
-              <div className="flex items-baseline gap-1.5">
-                <span
-                  className="font-bold text-gray-900 tabular-nums leading-none"
-                  style={{ fontFamily: "var(--font-dm-sans)", fontSize: "2rem" }}
-                >
-                  {viewedLog.totalProtein}
-                </span>
-                <span className="text-sm font-semibold text-gray-400">/ {profile.dailyProteinTarget}g</span>
-              </div>
-              <div className="mt-1.5 h-2 rounded-full bg-gray-100 overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${viewedLog.totalProtein > profile.dailyProteinTarget ? "bg-orange-400" : "bg-blue-500"}`}
-                  style={{ width: `${Math.min(viewedLog.totalProtein / profile.dailyProteinTarget, 1) * 100}%` }}
-                />
-              </div>
-            </div>
+          <div className="mx-auto mt-1 grid max-w-3xl gap-4 sm:grid-cols-2">
+            <ProgressBar
+              label="Calories"
+              value={viewedLog.totalCalories}
+              target={profile.dailyCalorieTarget}
+              unit="kcal"
+              series="calories"
+            />
+            <ProgressBar
+              label="Protein"
+              value={viewedLog.totalProtein}
+              target={profile.dailyProteinTarget}
+              unit="g"
+              series="protein"
+            />
           </div>
 
-          {/* Food log toggle */}
-          {viewedLog.entries.length > 0 && (
-            <div className="mt-3 pt-2 border-t border-gray-100">
+          {viewedLog.entries.length > 0 ? (
+            <div className="mx-auto mt-3 max-w-3xl border-t border-border-subtle pt-2">
               <button
-                onClick={() => setShowFoodLog(v => !v)}
-                className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-700 transition-colors"
+                type="button"
+                onClick={() => setShowFoodLog((v) => !v)}
+                aria-expanded={showFoodLog}
+                aria-controls="food-log-panel"
+                className="flex w-full min-h-9 items-center justify-center gap-1.5 text-sm font-semibold text-ink-muted transition-colors hover:text-ink"
               >
-                <span className="text-gray-400">{showFoodLog ? "▲" : "▼"}</span>
+                <Icon name={showFoodLog ? "chevron-up" : "chevron-down"} size={16} />
                 {`${viewedLog.entries.length} item${viewedLog.entries.length === 1 ? "" : "s"} logged`}
               </button>
-            </div>
-          )}
 
-          {/* Food log panel */}
-          {showFoodLog && viewedLog.entries.length > 0 && (
-            <div className="mt-2 border-t border-gray-100 pt-2 space-y-3">
-              {MEAL_ORDER.filter(m => entriesByMeal[m]?.length).map(meal => (
-                <div key={meal}>
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500">{MEAL_LABELS[meal]}</p>
-                    <p className="text-[11px] text-gray-400">
-                      {entriesByMeal[meal]!.reduce((s, e) => s + e.estimatedCalories, 0)} kcal
-                    </p>
-                  </div>
-                  {entriesByMeal[meal]!.map(entry => (
-                    <div key={entry.id} className="flex items-start justify-between py-1.5 border-b border-gray-50 last:border-0">
-                      <div className="flex-1 min-w-0 pr-2">
-                        <p className="text-sm text-gray-700 leading-snug">{entry.description}</p>
-                        <p className="text-[11px] text-gray-400">{entry.estimatedCalories} kcal · {entry.estimatedProtein}g protein</p>
+              {showFoodLog ? (
+                <div id="food-log-panel" className="mt-2 space-y-4 border-t border-border-subtle pt-3">
+                  {MEAL_ORDER.filter((m) => entriesByMeal[m]?.length).map((meal) => (
+                    <div key={meal}>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted">
+                          {MEAL_LABELS[meal]}
+                        </p>
+                        <p className="tnum text-xs text-ink-muted">
+                          {entriesByMeal[meal]!.reduce((s, e) => s + e.estimatedCalories, 0)} kcal
+                        </p>
                       </div>
-                      {isEditable && (
-                        <div className="flex gap-1 shrink-0">
-                          <button
-                            onClick={() => openEdit(entry)}
-                            className="text-[11px] text-emerald-600 font-medium px-2 py-0.5 rounded-lg bg-emerald-50"
+                      <ul>
+                        {entriesByMeal[meal]!.map((entry) => (
+                          <li
+                            key={entry.id}
+                            className="flex items-start justify-between gap-2 border-b border-border-subtle py-2 last:border-0"
                           >
-                            Edit
-                          </button>
-                          <button
-                            onClick={async () => { if (uid) await deleteFoodEntryDb(uid, viewDate, entry.id); await refreshLog(); }}
-                            className="text-[11px] text-red-400 font-medium px-2 py-0.5 rounded-lg bg-red-50"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      )}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm leading-snug text-ink-body">
+                                {entry.description}
+                              </p>
+                              <p className="tnum text-xs text-ink-muted">
+                                {entry.estimatedCalories} kcal · {entry.estimatedProtein}g protein
+                              </p>
+                            </div>
+                            {isEditable ? (
+                              <div className="flex shrink-0 gap-1">
+                                <IconButton
+                                  icon="pencil"
+                                  label={`Edit ${entry.description}`}
+                                  tone="brand"
+                                  size={36}
+                                  onClick={() => openEdit(entry)}
+                                />
+                                <IconButton
+                                  icon="trash"
+                                  label={`Delete ${entry.description}`}
+                                  tone="danger"
+                                  size={36}
+                                  onClick={async () => {
+                                    if (uid) await deleteFoodEntryDb(uid, viewDate, entry.id);
+                                    await refreshLog();
+                                  }}
+                                />
+                              </div>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   ))}
                 </div>
-              ))}
+              ) : null}
             </div>
-          )}
+          ) : null}
         </div>
 
-        {/* Past-day banner — only for days older than 3 days */}
-        {!isViewingToday && !isEditable && (
-          <div className="md:hidden bg-amber-50 border-b border-amber-100 px-4 py-2 flex items-center justify-between">
-            <p className="text-xs text-amber-700">Viewing {formatBannerDate(viewDate)} — read only</p>
+        {!isViewingToday && !isEditable ? (
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2">
+            <p className="text-sm text-amber-900">
+              Viewing {formatBannerDate(viewDate)} — read only
+            </p>
             <button
+              type="button"
               onClick={() => setViewDate(todayStr())}
-              className="text-xs font-semibold text-emerald-600"
+              className="text-sm font-semibold text-brand-800"
             >
-              Today →
+              Today
             </button>
           </div>
-        )}
+        ) : null}
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
-          {displayMessages.length === 0 && !streamingText && (
-            <div className="text-center text-gray-400 mt-16 flex flex-col items-center gap-3 px-6">
-              <CoachPhoto avatar={profile.coachAvatar} size={72} />
-              <div>
-                <p className="text-lg font-semibold text-gray-700">{avatar.name} is ready</p>
-                <p className="text-sm text-gray-400 mt-1 leading-relaxed">
-                  Tell me what you&apos;re eating today and I&apos;ll track your calories and protein automatically.
-                  <br />Tap the mic and just start talking.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {displayMessages.map((msg, i) => (
-            <MessageBubble key={i} message={msg} coachAvatar={profile.coachAvatar} />
-          ))}
-
-          {isEditable && streamingText && (
-            <MessageBubble
-              message={{ role: "assistant", content: streamingText, timestamp: new Date().toISOString() }}
-              coachAvatar={profile.coachAvatar}
-              isStreaming
-            />
-          )}
-
-          {isEditable && isLoading && !streamingText && (
-            <div className="flex gap-3">
-              <CoachPhoto avatar={profile.coachAvatar} size={36} className="mt-0.5" />
-              <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-sm shadow-sm px-4 py-3">
-                <div className="flex gap-1.5 items-center h-5">
-                  <span className="w-2 h-2 rounded-full bg-gray-300 animate-bounce [animation-delay:0ms]" />
-                  <span className="w-2 h-2 rounded-full bg-gray-300 animate-bounce [animation-delay:150ms]" />
-                  <span className="w-2 h-2 rounded-full bg-gray-300 animate-bounce [animation-delay:300ms]" />
+        {/* Messages — the only scrolling region on this screen. */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
+          <div className="mx-auto max-w-3xl space-y-5">
+            {displayMessages.length === 0 && !streamingText ? (
+              <div className="mt-12 flex flex-col items-center gap-3 px-6 text-center">
+                <CoachPhoto avatar={profile.coachAvatar} size={72} />
+                <div>
+                  <p className="text-lg font-semibold text-ink">
+                    {avatar.name} is ready
+                  </p>
+                  <p className="mt-1 text-sm leading-relaxed text-ink-muted">
+                    Tell me what you&apos;re eating today and I&apos;ll track your
+                    calories and protein automatically.
+                    <br />
+                    Tap the mic and just start talking.
+                  </p>
                 </div>
               </div>
-            </div>
-          )}
+            ) : null}
 
-          <div ref={bottomRef} />
+            {displayMessages.map((msg, i) => (
+              <MessageBubble key={i} message={msg} coachAvatar={profile.coachAvatar} />
+            ))}
+
+            {/* Streaming replies are announced, not just painted. */}
+            <div aria-live="polite" aria-atomic="false">
+              {isEditable && streamingText ? (
+                <MessageBubble
+                  message={{
+                    role: "assistant",
+                    content: streamingText,
+                    timestamp: new Date().toISOString(),
+                  }}
+                  coachAvatar={profile.coachAvatar}
+                  isStreaming
+                />
+              ) : null}
+            </div>
+
+            {isEditable && isLoading && !streamingText ? (
+              <div className="flex gap-3">
+                <CoachPhoto avatar={profile.coachAvatar} size={36} className="mt-0.5" />
+                <div className="flex h-11 items-center rounded-2xl rounded-tl-sm border border-border-subtle bg-surface px-4 shadow-card">
+                  <TypingDots label={`${avatar.name} is typing`} />
+                </div>
+              </div>
+            ) : null}
+
+            <div ref={bottomRef} />
+          </div>
         </div>
 
-        {/* Input area — hidden for days older than 3 days */}
-        {isEditable && (
-          <div className="bg-white border-t border-gray-100 px-4 pt-2 pb-4">
-            {isListening && (
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <span className="text-sm text-red-500 font-medium animate-pulse">Listening…</span>
-                {interimText && (
-                  <span className="text-sm text-gray-400 italic truncate max-w-[200px]">
-                    &ldquo;{interimText}&rdquo;
-                  </span>
-                )}
-              </div>
-            )}
-
-            {showInput && (
-              <form onSubmit={(e) => { handleSubmit(e); setShowInput(false); }} className="mb-2">
-                <div className="flex gap-2 items-end max-w-3xl mx-auto">
-                  <textarea
-                    ref={inputRef}
-                    autoFocus
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); setShowInput(false); } }}
-                    placeholder="Type here…"
-                    rows={1}
-                    className="flex-1 resize-none rounded-2xl border border-gray-200 px-4 py-3 text-base text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent max-h-32 overflow-y-auto"
-                    style={{ minHeight: "48px" }}
-                    onInput={(e) => {
-                      const el = e.currentTarget;
-                      el.style.height = "auto";
-                      el.style.height = Math.min(el.scrollHeight, 128) + "px";
-                    }}
-                  />
-                  {input.trim() ? (
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="shrink-0 w-11 h-11 rounded-2xl bg-emerald-500 text-white flex items-center justify-center disabled:opacity-40"
-                    >
-                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-                      </svg>
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setShowInput(false)}
-                      className="shrink-0 w-11 h-11 rounded-2xl bg-gray-100 text-gray-400 flex items-center justify-center"
-                    >
-                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                      </svg>
-                    </button>
-                  )}
-                </div>
-              </form>
-            )}
-
-            <div className="flex items-center justify-center gap-6">
-              <button
-                onClick={() => setShowInput((v) => !v)}
-                disabled={isLoading}
-                aria-label="Type a message"
-                className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${showInput ? "bg-emerald-100 text-emerald-600" : "bg-gray-100 text-gray-400 hover:bg-gray-200"}`}
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M20 5H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 5H5v-2h2v2zm10 0H7v-2h10v2zm0-3h-2v-2h2v2zm0-3h-2V8h2v2zm3 6h-2v-2h2v2z"/>
-                </svg>
-              </button>
-
-              <button
-                onClick={toggle}
-                disabled={isLoading}
-                aria-label={isListening ? "Stop listening" : "Start voice input"}
-                className={`relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200 disabled:opacity-40 shadow-lg active:scale-95
-                  ${isListening ? "bg-red-500 hover:bg-red-600" : "bg-emerald-500 hover:bg-emerald-600"}`}
-              >
-                {isListening && (
-                  <span className="absolute inset-0 rounded-full bg-red-400 animate-ping opacity-40" />
-                )}
-                {isListening ? (
-                  <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
-                    <rect x="6" y="6" width="12" height="12" rx="2" />
-                  </svg>
-                ) : (
-                  <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2H3v2a9 9 0 0 0 8 8.94V23h2v-2.06A9 9 0 0 0 21 12v-2h-2z" />
-                  </svg>
-                )}
-              </button>
-
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isLoading}
-                aria-label="Snap a nutrition label"
-                className="w-11 h-11 rounded-full flex items-center justify-center bg-gray-100 text-gray-400 hover:bg-gray-200 disabled:opacity-40 transition-colors"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M9 2 7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" />
-                </svg>
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handlePhoto}
-                className="hidden"
-              />
-            </div>
+        {photoError ? (
+          <div className="shrink-0 border-t border-danger/20 bg-danger-soft px-4 py-2">
+            <p role="alert" className="text-sm font-medium text-danger">
+              {photoError}
+            </p>
           </div>
-        )}
-      </main>
+        ) : null}
 
-      {showTour && (
+        {isEditable ? (
+          <div className="shrink-0">
+            <Composer
+              value={input}
+              onChange={setInput}
+              onSubmit={() => submitMessage(input)}
+              isLoading={isLoading}
+              isListening={isListening}
+              interimText={interimText}
+              onToggleMic={toggle}
+              onPickImage={handlePhotoFile}
+            />
+          </div>
+        ) : null}
+      </div>
+
+      {showTour ? (
         <FirstRunTour
           coachName={avatar.name}
           onDone={() => {
@@ -685,152 +547,73 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
             setShowTour(false);
           }}
         />
-      )}
+      ) : null}
 
-      {/* Account menu bottom drawer */}
-      {showAccountMenu && (
-        <>
-          <div
-            className="fixed inset-0 z-40 bg-black/40"
-            onClick={() => setShowAccountMenu(false)}
-          />
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl pb-10">
-            <div className="flex justify-center pt-3 pb-4">
-              <div className="w-10 h-1 rounded-full bg-gray-200" />
-            </div>
-            <div className="px-6 pb-4 border-b border-gray-100">
-              <p className="font-semibold text-gray-800">{profile.name}</p>
-              <p className="text-sm text-gray-400">{userEmail}</p>
-            </div>
-            <div className="px-6 pt-4 space-y-1">
-              <button
-                onClick={async () => {
-                  setShowAccountMenu(false);
-                  const supabase = createSupabaseBrowserClient();
-                  await supabase.auth.signOut();
-                  window.location.replace("/login");
-                }}
-                className="w-full text-left py-3 px-4 rounded-2xl text-gray-700 font-medium hover:bg-gray-50 transition-colors"
-              >
-                Sign out
-              </button>
-              <button
-                onClick={() => {
-                  setShowAccountMenu(false);
-                  window.location.href = "/meals";
-                }}
-                className="w-full text-left py-3 px-4 rounded-2xl text-gray-700 font-medium hover:bg-gray-50 transition-colors"
-              >
-                Manage saved meals
-              </button>
-              <button
-                onClick={() => {
-                  setShowAccountMenu(false);
-                  copyChat();
-                }}
-                className="w-full text-left py-3 px-4 rounded-2xl text-gray-700 font-medium hover:bg-gray-50 transition-colors"
-              >
-                {copyStatus === "copied" ? "Copied! ✓" : "Copy chat transcript"}
-              </button>
-              <button
-                onClick={async () => {
-                  setShowAccountMenu(false);
-                  const count = await seedTestData(profile, uid);
-                  await refreshLog();
-                  alert(`Seeded ${count} days of test data.`);
-                }}
-                className="w-full text-left py-3 px-4 rounded-2xl text-amber-600 text-sm font-medium hover:bg-amber-50 transition-colors"
-              >
-                Seed 2 weeks of test data
-              </button>
-              <button
-                onClick={() => {
-                  setShowAccountMenu(false);
-                  window.location.href = "mailto:support@youly.app";
-                }}
-                className="w-full text-left py-3 px-4 rounded-2xl text-gray-700 font-medium hover:bg-gray-50 transition-colors"
-              >
-                Contact support
-              </button>
-              <button
-                onClick={() => {
-                  setShowAccountMenu(false);
-                  window.open("/privacy", "_blank");
-                }}
-                className="w-full text-left py-3 px-4 rounded-2xl text-gray-500 text-sm hover:bg-gray-50 transition-colors"
-              >
-                Privacy policy
-              </button>
-              <button
-                onClick={() => {
-                  setShowAccountMenu(false);
-                  window.open("/terms", "_blank");
-                }}
-                className="w-full text-left py-3 px-4 rounded-2xl text-gray-500 text-sm hover:bg-gray-50 transition-colors"
-              >
-                Terms of use
-              </button>
-            </div>
+      {/* Entry edit — now a real dialog with a focus trap and Escape, and its
+          three inputs are labelled. */}
+      <Sheet
+        open={editingEntry !== null}
+        onClose={() => setEditingEntry(null)}
+        title="Edit entry"
+        footer={
+          <div className="flex gap-3">
+            <Button variant="secondary" fullWidth onClick={() => setEditingEntry(null)}>
+              Cancel
+            </Button>
+            <Button fullWidth onClick={saveEdit}>
+              Save
+            </Button>
           </div>
-        </>
-      )}
-
-      {/* Inline food entry edit sheet */}
-      {editingEntry && (
-        <>
-          <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setEditingEntry(null)} />
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl pb-10 px-6 pt-6">
-            <div className="flex justify-center mb-4">
-              <div className="w-10 h-1 rounded-full bg-gray-200" />
-            </div>
-            <p className="font-semibold text-gray-800 mb-4">Edit entry</p>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Description</label>
-                <input
-                  className="w-full mt-1 rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                  value={editForm.description}
-                  onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
-                />
-              </div>
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Calories</label>
-                  <input
+        }
+      >
+        <div className="space-y-4">
+          <Field label="Description">
+            {(props) => (
+              <Input
+                {...props}
+                value={editForm.description}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, description: e.target.value }))
+                }
+              />
+            )}
+          </Field>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <Field label="Calories">
+                {(props) => (
+                  <Input
+                    {...props}
                     type="number"
-                    className="w-full mt-1 rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                    inputMode="numeric"
+                    min={0}
                     value={editForm.calories}
-                    onChange={e => setEditForm(f => ({ ...f, calories: e.target.value }))}
+                    onChange={(e) =>
+                      setEditForm((f) => ({ ...f, calories: e.target.value }))
+                    }
                   />
-                </div>
-                <div className="flex-1">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Protein (g)</label>
-                  <input
-                    type="number"
-                    className="w-full mt-1 rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                    value={editForm.protein}
-                    onChange={e => setEditForm(f => ({ ...f, protein: e.target.value }))}
-                  />
-                </div>
-              </div>
+                )}
+              </Field>
             </div>
-            <div className="flex gap-3 mt-5">
-              <button
-                onClick={() => setEditingEntry(null)}
-                className="flex-1 py-3 rounded-2xl border border-gray-200 text-gray-500 font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={saveEdit}
-                className="flex-1 py-3 rounded-2xl bg-emerald-500 text-white font-semibold"
-              >
-                Save
-              </button>
+            <div className="flex-1">
+              <Field label="Protein (g)">
+                {(props) => (
+                  <Input
+                    {...props}
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    value={editForm.protein}
+                    onChange={(e) =>
+                      setEditForm((f) => ({ ...f, protein: e.target.value }))
+                    }
+                  />
+                )}
+              </Field>
             </div>
           </div>
-        </>
-      )}
+        </div>
+      </Sheet>
     </div>
   );
 }
