@@ -11,8 +11,8 @@ export default function manifest(): MetadataRoute.Manifest {
       "A conversational AI coach that tracks your calories and protein and adapts to how you work.",
     start_url: "/app",
     display: "standalone",
-    background_color: "#ffffff",
-    theme_color: "#047857",
+    background_color: "#faf8f5",
+    theme_color: "#0b4a55",
     icons: [
       { src: "/icon", sizes: "512x512", type: "image/png" },
       { src: "/apple-icon", sizes: "180x180", type: "image/png" },

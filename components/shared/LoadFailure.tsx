@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 // real user to onboarding on a transient failure is how a profile gets overwritten.
 export function LoadFailure({ onRetry }: { onRetry?: () => void }) {
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-surface-sunken px-6 text-center">
+    <div className="flex min-h-dvh flex-col items-center justify-center bg-canvas px-6 text-center">
       <p className="text-lg font-semibold text-ink">
         Couldn&apos;t load your account
       </p>

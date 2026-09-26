@@ -17,7 +17,7 @@ export function AppShell({
   sidebarFooter?: React.ReactNode;
 }) {
   return (
-    <div className="flex h-dvh overflow-hidden bg-surface-sunken">
+    <div className="flex h-dvh overflow-hidden bg-canvas">
       <AppSidebar footer={sidebarFooter} />
 
       <div className="flex min-w-0 flex-1 flex-col">

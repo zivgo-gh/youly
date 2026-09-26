@@ -66,7 +66,7 @@ export default function HomePage() {
     <>
       {/* Hero. Persuade-mode discipline: one value-prop line, one prominent CTA,
           both above the fold on a phone. Supporting detail goes below. */}
-      <section className="bg-brand-700 py-16 sm:py-24">
+      <section className="bg-brand-950 py-16 sm:py-24">
         <Container width="wide">
           <div className="max-w-2xl">
             <p className="text-sm font-semibold uppercase tracking-[0.16em] text-brand-200">
@@ -85,7 +85,10 @@ export default function HomePage() {
                 href="/how-it-works"
                 variant="secondary"
                 size="lg"
-                className="border-transparent bg-brand-600 text-white hover:bg-brand-800"
+                // Outline rather than a fill: a brand-600 fill measured only
+                // 2.28:1 against the hero block, under the 3:1 a control boundary
+                // needs. brand-400 as a border clears it at 4.74:1.
+                className="border-brand-400 bg-transparent text-white hover:bg-brand-800"
               >
                 See how it works
               </ButtonLink>
@@ -219,7 +222,7 @@ export default function HomePage() {
       </section>
 
       {/* Closing CTA. */}
-      <section className="bg-brand-700 py-16 sm:py-20">
+      <section className="bg-brand-900 py-16 sm:py-20">
         <Container width="wide">
           <div className="max-w-2xl">
             <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">

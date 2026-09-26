@@ -72,13 +72,13 @@ const SECTIONS: Array<{
 export default function HowItWorksPage() {
   return (
     <>
-      <section className="bg-brand-700 py-14 sm:py-20">
+      <section className="border-b border-border-subtle py-14 sm:py-20">
         <Container width="wide">
           <div className="max-w-2xl">
-            <h1 className="text-3xl font-bold leading-tight tracking-tight text-white sm:text-4xl lg:text-5xl">
+            <h1 className="text-3xl font-bold leading-tight tracking-tight text-ink sm:text-4xl lg:text-5xl">
               How Youly works
             </h1>
-            <p className="mt-4 text-lg text-brand-50">
+            <p className="mt-4 text-lg text-ink-muted">
               From a spoken sentence to a tracked day — and what the numbers are
               actually based on.
             </p>

@@ -14,7 +14,7 @@ export default function OpengraphImage() {
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
-          background: "#047857",
+          background: "#052026",
           padding: "80px 88px",
         }}
       >
@@ -22,7 +22,7 @@ export default function OpengraphImage() {
           style={{
             fontSize: 40,
             fontWeight: 700,
-            color: "#6ee7b7",
+            color: "#a8d3d6",
             letterSpacing: "0.12em",
             textTransform: "uppercase",
           }}
@@ -46,7 +46,7 @@ export default function OpengraphImage() {
             marginTop: 28,
             fontSize: 38,
             lineHeight: 1.3,
-            color: "#d1fae5",
+            color: "#d3e9ea",
           }}
         >
           An AI coach that tracks your calories and protein — and adapts to you.
