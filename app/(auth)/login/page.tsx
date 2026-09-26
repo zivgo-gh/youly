@@ -8,12 +8,20 @@ import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 
 /**
- * `useSearchParams` client-renders the tree up to the nearest Suspense boundary
- * on a prerendered route, so the ?next= reader has to sit inside one.
+ * `useSearchParams` makes a client component bail out of prerendering, so it has to
+ * sit under a Suspense boundary whose fallback does NOT call it.
+ *
+ * The first version of this file wrapped <LoginForm> in a boundary whose fallback
+ * was <LoginForm> — which calls useSearchParams too, so the fallback bailed out
+ * as well and the boundary achieved nothing. The build failed with
+ * "useSearchParams() should be wrapped in a suspense boundary at page /login".
+ *
+ * LoginShell is the single markup source; the fallback renders it inert, so the
+ * prerendered HTML and the hydrated page can't drift apart.
  */
 export default function LoginPage() {
   return (
-    <Suspense fallback={<LoginForm />}>
+    <Suspense fallback={<LoginShell pending />}>
       <LoginForm />
     </Suspense>
   );
@@ -24,19 +32,16 @@ function LoginForm() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Surfaced by /auth/callback when the provider hands back an error instead of
-  // a code, so a cancelled or failed sign-in explains itself.
-  const callbackError = params?.get("error");
-  const message =
-    error ??
-    (callbackError
-      ? "Sign-in didn't complete. Please try again."
-      : null);
-
   // Only ever honour an internal app path — an open redirect here would let a
   // crafted link bounce a freshly-authenticated user to another origin.
   const raw = params?.get("next") ?? "";
   const next = raw.startsWith("/app") ? raw : "";
+
+  // Surfaced by /auth/callback when the provider hands back an error instead of a
+  // code, so a cancelled or failed sign-in explains itself.
+  const callbackError = params?.get("error");
+  const message =
+    error ?? (callbackError ? "Sign-in didn't complete. Please try again." : null);
 
   async function signInWithGoogle() {
     setPending(true);
@@ -56,6 +61,20 @@ function LoginForm() {
     }
   }
 
+  return (
+    <LoginShell pending={pending} message={message} onSignIn={signInWithGoogle} />
+  );
+}
+
+function LoginShell({
+  pending,
+  message,
+  onSignIn,
+}: {
+  pending?: boolean;
+  message?: string | null;
+  onSignIn?: () => void;
+}) {
   return (
     <FunnelShell
       title={
@@ -103,7 +122,9 @@ function LoginForm() {
           size="lg"
           fullWidth
           loading={pending}
-          onClick={signInWithGoogle}
+          // No handler in the prerendered fallback — it hydrates into the real one.
+          disabled={!onSignIn}
+          onClick={onSignIn}
         >
           {!pending ? <GoogleMark /> : null}
           Continue with Google
