@@ -164,10 +164,10 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
       endpoint: "/api/chat",
       getBody: (msgs, image) => {
         const now = new Date();
+        // profile and logs are deliberately NOT sent — /api/chat reads them under
+        // RLS. The client owns only the message list and its own clock.
         return {
           messages: msgs,
-          profile,
-          logs,
           clientTime: now.toISOString(),
           clientDate: todayStr(),
           clientHour: now.getHours(),

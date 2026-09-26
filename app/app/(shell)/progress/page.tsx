@@ -128,11 +128,8 @@ export default function ProgressPage() {
     if (!profile) return;
     setSummaryLoading(true);
     try {
-      const res = await fetch("/api/summary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profile, logs }),
-      });
+      // No body: the route reads the profile and logs server-side under RLS.
+      const res = await fetch("/api/summary", { method: "POST" });
       if (!res.ok) {
         setSummary(
           res.status === 401
