@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 const FAQS: Array<{ q: string; a: string }> = [
   {
     q: "How accurate are the calorie estimates?",
-    a: "They are estimates, and they are meant to be. An AI estimate of a described meal will not match a food scale, but tracking that you actually keep doing beats precise tracking you abandon in a week. When accuracy matters, photograph the nutrition label and the numbers come off the label instead of an estimate — and you can always correct any entry by saying so.",
+    a: "They are estimates, and they are meant to be. An AI estimate of a described meal will not match a food scale. But tracking you actually keep doing beats precise tracking you abandon in a week. When accuracy matters, photograph the nutrition label: the numbers then come off the label instead of an estimate. You can also correct any entry just by saying so.",
   },
   {
     q: "Do I need to weigh or measure my food?",
@@ -24,7 +24,7 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: "Does it work on my phone?",
-    a: "Youly is a website, so it works in your phone's browser with nothing to install. It is built mobile-first — voice logging in particular is designed for a phone — and it also works on a laptop. You can add it to your home screen if you want it to feel like an app.",
+    a: "Youly is a website, so it works in your phone's browser with nothing to install. It is built mobile-first (voice logging in particular is designed for a phone) and it also works on a laptop. You can add it to your home screen if you want it to feel like an app.",
   },
   {
     q: "Does voice input work everywhere?",
@@ -44,11 +44,11 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: "How is my calorie target calculated?",
-    a: "Your resting metabolic rate uses the Mifflin-St Jeor equation, scaled by your activity level to get total daily energy expenditure, then reduced by the deficit matching the pace you chose — 250, 500, or 750 calories a day. Protein follows USDA dietary reference intake guidance per kilogram of bodyweight, scaled by activity level.",
+    a: "Your resting metabolic rate uses the Mifflin-St Jeor equation, scaled by your activity level to get total daily energy expenditure, then reduced by the deficit matching the pace you chose: 250, 500, or 750 calories a day. Protein follows USDA dietary reference intake guidance per kilogram of bodyweight, scaled by activity level.",
   },
   {
     q: "Are the four coaches different?",
-    a: "Only visually — the name and picture you pick. All four behave identically at the start. What actually differentiates your coach over time is that it adapts to how you respond.",
+    a: "Only visually: the name and picture you pick. All four behave identically at the start. What actually differentiates your coach over time is that it adapts to how you respond.",
   },
   {
     q: "What does it cost?",
@@ -66,7 +66,7 @@ export default function FaqPage() {
               Questions
             </h1>
             <p className="mt-4 text-lg text-brand-50">
-              Straight answers, including the ones that aren&apos;t flattering.
+              Straight answers, including the ones that are not flattering.
             </p>
           </div>
         </Container>

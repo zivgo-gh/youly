@@ -170,7 +170,10 @@ export default function HomePage() {
       {/* Trust. Stated plainly, and only things that are true. */}
       <section className="bg-surface-sunken py-16 sm:py-20">
         <Container width="wide">
-          <div className="grid gap-6 sm:grid-cols-3">
+          <h2 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">
+            What you should know before you start
+          </h2>
+          <div className="mt-8 grid gap-6 sm:grid-cols-3">
             <Card>
               <span className="flex size-11 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
                 <Icon name="lock" size={22} />

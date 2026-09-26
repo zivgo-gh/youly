@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChatInterface } from "@/components/chat/ChatInterface";
 import { LoadFailure } from "@/components/shared/LoadFailure";
+import { LoadingScreen } from "@/components/ui/Feedback";
 import { loadChatHistoryDb } from "@/lib/chat-db";
 import { resolveProfile } from "@/lib/resolve-profile";
 import { todayStr } from "@/lib/calories";
@@ -42,13 +43,7 @@ export default function ChatPage() {
 
   if (failed) return <LoadFailure />;
 
-  if (loading || !profile) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-400 text-sm">Loading...</div>
-      </div>
-    );
-  }
+  if (loading || !profile) return <LoadingScreen label="Loading your coach" />;
 
   return <ChatInterface profile={profile} initialMessages={messages} uid={uid} />;
 }
