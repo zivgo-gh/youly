@@ -5,7 +5,7 @@ import { Spinner } from "./Button";
 /** Replaces 4 byte-identical full-page "Loading..." blocks. */
 export function LoadingScreen({ label = "Loading" }: { label?: string }) {
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-canvas">
+    <div className="flex min-h-full flex-1 items-center justify-center bg-canvas">
       {/* Announced politely so a screen reader knows a wait is in progress. */}
       <p
         role="status"

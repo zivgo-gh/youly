@@ -302,7 +302,7 @@ export default function OnboardingPage() {
   const avatar = AVATARS[selectedAvatar];
 
   return (
-    <div className="flex h-dvh flex-col bg-canvas">
+    <div className="flex h-[100svh] flex-col bg-canvas">
       <header className="flex shrink-0 items-center gap-3 border-b border-border-subtle bg-surface px-4 py-3 pt-safe">
         <CoachPhoto avatar={selectedAvatar} size={36} />
         <div className="min-w-0 flex-1">

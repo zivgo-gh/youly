@@ -6,11 +6,23 @@ import { ViewportLock } from "./ViewportLock";
  * The gated app's frame: sidebar from lg up, mobile header plus bottom tab bar
  * below it.
  *
- * h-dvh, NOT `fixed inset-0`. Pinning the shell out of flow seemed like the
- * tidy way to stop the document scrolling, but on iOS it collapsed the layout —
- * the shell lost its resolved height, `main` flexed to nothing, and the composer
- * and tab bar stacked at the top of an empty screen. <ViewportLock /> takes away
- * the document's scroll instead, leaving this layout untouched.
+ * Height is 100svh — the SMALL viewport, i.e. the height with the browser
+ * toolbars expanded.
+ *
+ * This is the whole fix for the dead scroll band. `html` is `height: 100%`,
+ * which resolves against the layout viewport, but `100dvh` GROWS past that when
+ * iOS Safari retracts its toolbars. The shell then became taller than the
+ * document and the page itself scrolled — so the header and messages slid off
+ * the top and you were left staring at the composer, the tab bar and a slab of
+ * empty canvas, which looks exactly like the chat screen disappearing.
+ *
+ * `svh` is by definition never larger than the layout viewport, so the shell can
+ * never overflow the document and there is nothing to scroll. <ViewportLock />
+ * belts-and-braces it by locking overflow while a gated screen is mounted.
+ *
+ * Do NOT "fix" this by making the shell `fixed inset-0` — that was tried, and
+ * out of flow it loses its resolved height, so `main` (flex-1 min-h-0) flexes to
+ * zero and the layout genuinely does collapse.
  */
 export function AppShell({
   children,
@@ -20,7 +32,7 @@ export function AppShell({
   sidebarFooter?: React.ReactNode;
 }) {
   return (
-    <div className="flex h-dvh overflow-hidden bg-canvas">
+    <div className="flex h-[100svh] overflow-hidden bg-canvas">
       <ViewportLock />
       <AppSidebar footer={sidebarFooter} />
 

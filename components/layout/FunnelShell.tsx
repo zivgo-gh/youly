@@ -28,7 +28,7 @@ export function FunnelShell({
   headerAction?: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-dvh flex-col bg-brand-900">
+    <div className="flex min-h-[100svh] flex-col bg-brand-900">
       <header className="shrink-0 px-6 pt-safe sm:px-8">
         <div className="mx-auto w-full max-w-lg pt-8 pb-6">
           <div className="flex items-start justify-between gap-4">
