@@ -1,13 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { anthropic } from "@/lib/ai";
+import { requireApiUser } from "@/lib/auth-server";
 import type { UserProfile, DailyLogs } from "@/lib/types";
 import { weeklyStats, computeTrajectory, dateRange } from "@/lib/calories";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
+  // Was a completely open Anthropic proxy. Phase 4 additionally stops trusting
+  // the client-supplied profile/logs below and reads them under RLS instead.
+  const auth = await requireApiUser();
+  if (!auth.ok) return auth.response;
+
   const body = await req.json();
   const { profile, logs }: { profile: UserProfile; logs: DailyLogs } = body;
+
+  if (!profile || !logs) {
+    return NextResponse.json(
+      { error: "profile and logs required" },
+      { status: 400 }
+    );
+  }
 
   const stats = weeklyStats(logs, 7);
   const trajectory = computeTrajectory(logs, profile);

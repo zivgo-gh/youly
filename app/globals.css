@@ -1,26 +1,124 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ─────────────────────────────────────────────────────────────────────────────
+   youly design tokens
+
+   Two surfaces, one system: (site) = Persuade (marketing), /app = Operate.
+   The contrast floor is WCAG AA — 4.5:1 for text, 3:1 for non-text. Every value
+   below was picked to clear it. Before swapping one, check it: the palette this
+   replaced failed badly (text-gray-400 at 2.54:1 was the most-used class in the
+   app, and emerald-600 at 3.2:1 was every link).
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@theme {
+  /* Brand ramp — emerald. Existing brand equity, kept deliberately.
+     brand-600 = primary fill. brand-700 = the only shade safe for small text
+     on white (4.9:1). brand-500 and lighter are fills and accents ONLY. */
+  --color-brand-50: #ecfdf5;
+  --color-brand-100: #d1fae5;
+  --color-brand-200: #a7f3d0;
+  --color-brand-300: #6ee7b7;
+  --color-brand-400: #34d399;
+  --color-brand-500: #10b981;
+  --color-brand-600: #059669;
+  --color-brand-700: #047857;
+  --color-brand-800: #065f46;
+  --color-brand-900: #064e3b;
+  --color-brand-950: #022c22;
+
+  /* Ink — text only. There is deliberately no lighter step than ink-muted:
+     anything fainter fails AA, which is how we got here. */
+  --color-ink: #111827;         /* headings                  ~16.9:1 on white */
+  --color-ink-body: #374151;    /* body copy                  ~10.4:1 */
+  --color-ink-muted: #4b5563;   /* secondary / captions        ~7.5:1 */
+
+  /* Surfaces + borders. border-subtle clears the 3:1 non-text floor;
+     the gray-100 hairline it replaces did not. */
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f9fafb;
+  --color-surface-raised: #ffffff;
+  --color-border-subtle: #e5e7eb;
+  --color-border-strong: #d1d5db;
+
+  /* Data series — calories / protein / over-target. Each is paired with a text
+     label at every use site, because colour alone is not a signal. */
+  --color-data-calories: #059669;
+  --color-data-protein: #2563eb;
+  --color-data-over: #d97706;
+  --color-data-grid: #e5e7eb;
+  --color-data-axis: #4b5563;
+
+  --color-danger: #dc2626;
+  --color-danger-soft: #fef2f2;
+
+  /* Elevation — four steps, no ad-hoc shadows. */
+  --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-raised: 0 4px 12px -2px rgb(0 0 0 / 0.08);
+  --shadow-cta: 0 8px 20px -6px rgb(5 150 105 / 0.45);
+  --shadow-sheet: 0 -8px 40px -8px rgb(0 0 0 / 0.25);
+
+  /* Motion. Enter with ease-out, exit with ease-in at ~65% of the enter
+     duration so dismissals feel responsive. */
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* The Arial bug lived here: body had a hardcoded Arial stack while
+     `font-sans` was never used as a class, so three next/font families
+     downloaded and none of them painted. DM Sans is now the one typeface. */
+  --font-sans: var(--font-dm-sans);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Safe-area utilities — replaces the hardcoded pt-14 / pb-10 that faked
+   iOS chrome at a single fixed phone size. */
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility pl-safe {
+  padding-left: env(safe-area-inset-left);
+}
+@utility pr-safe {
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Duration tokens usable as plain CSS. */
+:root {
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-slow: 300ms;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-surface);
+  color: var(--color-ink-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* One visible focus style for the whole product. Previously ~60 buttons and
+   every link had no focus style at all, and inputs used a ring that measured
+   2.1:1 — under the 3:1 non-text minimum. */
+:focus-visible {
+  outline: 2px solid var(--color-brand-700);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Numerals in metrics must not reflow as values change. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
