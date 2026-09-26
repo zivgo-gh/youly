@@ -1,18 +1,16 @@
 import { AppSidebar, AppTabBar } from "./AppNav";
 import { AppMobileHeader } from "./AppMobileHeader";
+import { ViewportLock } from "./ViewportLock";
 
 /**
  * The gated app's frame: sidebar from lg up, mobile header plus bottom tab bar
  * below it.
  *
- * `fixed inset-0` rather than `h-dvh`. h-dvh tracks the viewport, but iOS Safari
- * grows the viewport when the toolbar retracts, so the shell became taller than
- * the document's 100% and the whole page scrolled — leaving a dead band of canvas
- * below the tab bar that you could scroll into. Taking the shell out of flow pins
- * it to the viewport exactly, so the document has nothing to scroll.
- *
- * `overscroll-none` additionally stops the rubber-band at the edges. Each screen
- * still scrolls its own content; only the document is locked.
+ * h-dvh, NOT `fixed inset-0`. Pinning the shell out of flow seemed like the
+ * tidy way to stop the document scrolling, but on iOS it collapsed the layout —
+ * the shell lost its resolved height, `main` flexed to nothing, and the composer
+ * and tab bar stacked at the top of an empty screen. <ViewportLock /> takes away
+ * the document's scroll instead, leaving this layout untouched.
  */
 export function AppShell({
   children,
@@ -22,7 +20,8 @@ export function AppShell({
   sidebarFooter?: React.ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 flex overflow-hidden overscroll-none bg-canvas">
+    <div className="flex h-dvh overflow-hidden bg-canvas">
+      <ViewportLock />
       <AppSidebar footer={sidebarFooter} />
 
       <div className="flex min-w-0 flex-1 flex-col">
