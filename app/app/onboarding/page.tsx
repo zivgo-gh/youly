@@ -80,7 +80,6 @@ export default function OnboardingPage() {
       localStorage.removeItem(chatMigratedKey(uid));
     }
     localStorage.removeItem("arc_intro_done");
-    localStorage.removeItem("arc_consent_done");
     localStorage.removeItem("youly_tour_done");
     await supabase.auth.signOut();
     window.location.replace("/");

@@ -8,7 +8,6 @@ function keys(uid: string) {
     profile: `arc_profile_${uid}`,
     logs: `arc_logs_${uid}`,
     chat: `arc_chat_${uid}`,
-    consent: `arc_consent_${uid}`,
   };
 }
 
@@ -169,12 +168,9 @@ export function getAvailableChatDates(uid?: string): string[] {
   return dates.sort().reverse();
 }
 
-// ─── Consent ─────────────────────────────────────────────────────────────────
-
-export function hasConsented(uid: string): boolean {
-  if (typeof window === "undefined") return false;
-  return localStorage.getItem(keys(uid).consent) === "true";
-}
+// Consent is NOT tracked here any more. It lives in the `user_consents` table
+// (see lib/consent.ts): localStorage is wiped by Safari after 7 days, and a
+// device-local flag can't be attributed to a user or versioned against a policy.
 
 // ─── Clear all data for a user ────────────────────────────────────────────────
 
