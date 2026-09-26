@@ -91,17 +91,24 @@ begin
     raise exception 'Source and destination are the same account';
   end if;
 
+  -- Must include EVERY table that keys on user_id. user_consents was missing from
+  -- an earlier version of this count, which meant a destination holding only a
+  -- consent row reported 0, skipped the delete, and then collided on
+  -- user_consents' primary key mid-transfer. Atomic, so nothing was lost — but
+  -- it failed confusingly instead of reporting the conflict up front.
   select
-    (select count(*) from public.profiles      where user_id = dst_id)
-  + (select count(*) from public.food_entries  where user_id = dst_id)
-  + (select count(*) from public.weights       where user_id = dst_id)
-  + (select count(*) from public.saved_meals   where user_id = dst_id)
-  + (select count(*) from public.chat_messages where user_id = dst_id)
+    (select count(*) from public.profiles         where user_id = dst_id)
+  + (select count(*) from public.food_entries     where user_id = dst_id)
+  + (select count(*) from public.weights          where user_id = dst_id)
+  + (select count(*) from public.saved_meals      where user_id = dst_id)
+  + (select count(*) from public.saved_meal_items where user_id = dst_id)
+  + (select count(*) from public.chat_messages    where user_id = dst_id)
+  + (select count(*) from public.user_consents    where user_id = dst_id)
   into dst_rows;
 
   if dst_rows > 0 and not overwrite then
     raise exception
-      'Destination % already owns % rows. Review STEP 1, then set overwrite := true to replace them.',
+      'Destination % already owns % row(s). Run STEP 1b and CHECK THE DIRECTION before continuing: if src/dst are the wrong way round, overwrite := true destroys the real history. If those rows are just a throwaway sign-in, set overwrite := true.',
       dst_email, dst_rows;
   end if;
 
