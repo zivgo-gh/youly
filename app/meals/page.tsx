@@ -4,8 +4,22 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { resolveProfile } from "@/lib/resolve-profile";
 import { LoadFailure } from "@/components/shared/LoadFailure";
-import { getSavedMeals, createSavedMeal, updateSavedMeal, deleteSavedMeal } from "@/lib/db";
+import {
+  getSavedMeals,
+  createSavedMeal,
+  updateSavedMeal,
+  deleteSavedMeal,
+} from "@/lib/db";
 import type { MealType, SavedMeal, SavedMealItem } from "@/lib/types";
+import { Container } from "@/components/ui/Container";
+import { Card, CardLabel } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { IconButton } from "@/components/ui/IconButton";
+import { Icon } from "@/components/ui/Icon";
+import { Sheet } from "@/components/ui/Sheet";
+import { Field, Input } from "@/components/ui/Field";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { LoadingScreen, EmptyState, Badge } from "@/components/ui/Feedback";
 
 const MEAL_ORDER: MealType[] = ["breakfast", "lunch", "dinner", "snack"];
 const MEAL_LABELS: Record<MealType, string> = {
@@ -43,6 +57,7 @@ export default function MealsPage() {
   const [meals, setMeals] = useState<SavedMeal[]>([]);
   const [form, setForm] = useState<MealForm | null>(null);
   const [saving, setSaving] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<SavedMeal | null>(null);
 
   const refresh = useCallback(async (userId: string) => {
     setMeals(await getSavedMeals(userId));
@@ -70,29 +85,51 @@ export default function MealsPage() {
     init();
   }, [router, refresh]);
 
-  const startCreate = () => setForm(emptyForm());
   const startEdit = (m: SavedMeal) =>
     setForm({
       id: m.id,
       name: m.name,
       meal: m.meal,
       items: m.items.length
-        ? m.items.map((i) => ({ description: i.description, calories: String(i.calories), protein: String(i.protein) }))
+        ? m.items.map((i) => ({
+            description: i.description,
+            calories: String(i.calories),
+            protein: String(i.protein),
+          }))
         : [{ description: "", calories: "", protein: "" }],
     });
 
   const updateItem = (idx: number, patch: Partial<ItemForm>) =>
-    setForm((f) => (f ? { ...f, items: f.items.map((it, i) => (i === idx ? { ...it, ...patch } : it)) } : f));
+    setForm((f) =>
+      f
+        ? {
+            ...f,
+            items: f.items.map((it, i) => (i === idx ? { ...it, ...patch } : it)),
+          }
+        : f
+    );
   const addItem = () =>
-    setForm((f) => (f ? { ...f, items: [...f.items, { description: "", calories: "", protein: "" }] } : f));
+    setForm((f) =>
+      f
+        ? { ...f, items: [...f.items, { description: "", calories: "", protein: "" }] }
+        : f
+    );
   const removeItem = (idx: number) =>
     setForm((f) => (f ? { ...f, items: f.items.filter((_, i) => i !== idx) } : f));
+
+  const nameMissing = form !== null && form.name.trim() === "";
+  const itemsMissing =
+    form !== null && form.items.every((it) => it.description.trim() === "");
 
   const save = async () => {
     if (!form || !uid) return;
     const items: SavedMealItem[] = form.items
       .filter((it) => it.description.trim())
-      .map((it) => ({ description: it.description.trim(), calories: Number(it.calories) || 0, protein: Number(it.protein) || 0 }));
+      .map((it) => ({
+        description: it.description.trim(),
+        calories: Number(it.calories) || 0,
+        protein: Number(it.protein) || 0,
+      }));
     if (!form.name.trim() || items.length === 0) return;
     setSaving(true);
     if (form.id) {
@@ -105,175 +142,249 @@ export default function MealsPage() {
     setForm(null);
   };
 
-  const remove = async (id: string) => {
-    if (!uid || !confirm("Delete this saved meal?")) return;
-    await deleteSavedMeal(uid, id);
+  const confirmRemove = async () => {
+    if (!uid || !pendingDelete) return;
+    await deleteSavedMeal(uid, pendingDelete.id);
+    setPendingDelete(null);
     await refresh(uid);
   };
 
   if (failed) return <LoadFailure />;
+  if (loading) return <LoadingScreen label="Loading your meals" />;
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-400 text-sm">Loading...</div>
-      </div>
-    );
-  }
-
-  const mealsByType = MEAL_ORDER.map((type) => ({ type, list: meals.filter((m) => m.meal === type) }));
+  const mealsByType = MEAL_ORDER.map((type) => ({
+    type,
+    list: meals.filter((m) => m.meal === type),
+  }));
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center gap-4">
-        <a href="/chat" className="text-emerald-600 hover:underline text-sm">← Back to chat</a>
-        <span className="text-lg font-black tracking-tight uppercase text-emerald-600">Youly</span>
-        <span className="text-gray-400 text-sm">Saved meals</span>
-      </header>
-
-      <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-500">
-            Save meals you eat often, then just say &ldquo;log lunch #2&rdquo; in chat.
-          </p>
-          <button
-            onClick={startCreate}
-            className="shrink-0 py-2 px-4 rounded-2xl bg-emerald-500 text-white text-sm font-semibold active:scale-95 transition-transform"
-          >
-            + New meal
-          </button>
+    <div className="bg-surface-sunken py-8 sm:py-12">
+      <Container>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight text-ink">
+              Saved meals
+            </h1>
+            <p className="mt-1 text-sm text-ink-muted">
+              Save meals you eat often, then just say &ldquo;log lunch #2&rdquo; in
+              chat.
+            </p>
+          </div>
+          <Button size="sm" onClick={() => setForm(emptyForm())}>
+            <Icon name="plus" size={18} />
+            New meal
+          </Button>
         </div>
 
-        {meals.length === 0 && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-400 text-sm">
-            No saved meals yet. Create one, or tell your coach &ldquo;save that as my lunch&rdquo;.
+        <div className="mt-6 space-y-8">
+          {meals.length === 0 ? (
+            <Card>
+              <EmptyState
+                icon="meal"
+                title="No saved meals yet"
+                body="Create one here, or just tell your coach to save what you just logged."
+                action={
+                  <Button size="sm" onClick={() => setForm(emptyForm())}>
+                    Create your first meal
+                  </Button>
+                }
+              />
+            </Card>
+          ) : null}
+
+          {mealsByType.map(({ type, list }) =>
+            list.length === 0 ? null : (
+              <section key={type}>
+                <CardLabel>{MEAL_LABELS[type]}</CardLabel>
+                <ul className="mt-3 space-y-3">
+                  {list.map((m) => {
+                    const cal = m.items.reduce((s, i) => s + i.calories, 0);
+                    const pro = m.items.reduce((s, i) => s + i.protein, 0);
+                    return (
+                      <Card as="li" key={m.id} padded={false} className="p-4 sm:p-5">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-ink">
+                              <Badge tone="brand">
+                                {MEAL_LABELS[type]} #{m.categoryNumber}
+                              </Badge>{" "}
+                              <span className="align-middle">{m.name}</span>
+                            </p>
+                            <p className="tnum mt-1 text-sm text-ink-muted">
+                              meal #{m.globalNumber} · {cal} kcal · {pro}g protein
+                            </p>
+                            <ul className="mt-2 space-y-0.5">
+                              {m.items.map((it, i) => (
+                                <li key={i} className="text-sm text-ink-body">
+                                  {it.description}{" "}
+                                  <span className="tnum text-ink-muted">
+                                    ({it.calories} kcal, {it.protein}g)
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                          <div className="flex shrink-0 gap-1">
+                            <IconButton
+                              icon="pencil"
+                              label={`Edit ${m.name}`}
+                              tone="brand"
+                              onClick={() => startEdit(m)}
+                            />
+                            <IconButton
+                              icon="trash"
+                              label={`Delete ${m.name}`}
+                              tone="danger"
+                              onClick={() => setPendingDelete(m)}
+                            />
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </ul>
+              </section>
+            )
+          )}
+        </div>
+      </Container>
+
+      <Sheet
+        open={form !== null}
+        onClose={() => setForm(null)}
+        title={form?.id ? "Edit saved meal" : "New saved meal"}
+        footer={
+          <div className="flex gap-3">
+            <Button variant="secondary" fullWidth onClick={() => setForm(null)}>
+              Cancel
+            </Button>
+            <Button
+              fullWidth
+              loading={saving}
+              disabled={nameMissing || itemsMissing}
+              onClick={save}
+            >
+              Save meal
+            </Button>
           </div>
-        )}
-
-        {mealsByType.map(({ type, list }) =>
-          list.length === 0 ? null : (
-            <section key={type}>
-              <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">{MEAL_LABELS[type]}</h2>
-              <div className="space-y-2">
-                {list.map((m) => {
-                  const cal = m.items.reduce((s, i) => s + i.calories, 0);
-                  const pro = m.items.reduce((s, i) => s + i.protein, 0);
-                  return (
-                    <div key={m.id} className="bg-white rounded-2xl border border-gray-100 p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-gray-800">
-                            <span className="text-emerald-600">{MEAL_LABELS[type]} #{m.categoryNumber}</span>{" "}
-                            · {m.name}
-                          </p>
-                          <p className="text-xs text-gray-400 mt-0.5">meal #{m.globalNumber} · {cal} kcal · {pro}g protein</p>
-                          <ul className="mt-2 space-y-0.5">
-                            {m.items.map((it, i) => (
-                              <li key={i} className="text-sm text-gray-600">
-                                {it.description} <span className="text-gray-400">({it.calories} kcal, {it.protein}g)</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                        <div className="flex flex-col gap-1 shrink-0">
-                          <button onClick={() => startEdit(m)} className="text-xs text-emerald-600 font-medium px-3 py-1 rounded-lg bg-emerald-50">Edit</button>
-                          <button onClick={() => remove(m.id)} className="text-xs text-red-400 font-medium px-3 py-1 rounded-lg bg-red-50">Delete</button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )
-        )}
-      </div>
-
-      {/* Create / edit sheet */}
-      {form && (
-        <>
-          <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setForm(null)} />
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl pb-10 px-6 pt-6 max-h-[85vh] overflow-y-auto max-w-2xl mx-auto">
-            <div className="flex justify-center mb-4"><div className="w-10 h-1 rounded-full bg-gray-200" /></div>
-            <p className="font-semibold text-gray-800 mb-4">{form.id ? "Edit saved meal" : "New saved meal"}</p>
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</label>
-                <input
-                  className="w-full mt-1 rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                  placeholder="e.g. Turkey & cottage cheese"
+        }
+      >
+        {form ? (
+          <div className="space-y-5">
+            <Field
+              label="Name"
+              error={nameMissing ? "Give this meal a name." : undefined}
+            >
+              {(props) => (
+                <Input
+                  {...props}
+                  placeholder="e.g. Turkey and cottage cheese"
                   value={form.name}
-                  onChange={(e) => setForm((f) => (f ? { ...f, name: e.target.value } : f))}
+                  onChange={(e) =>
+                    setForm((f) => (f ? { ...f, name: e.target.value } : f))
+                  }
                 />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Meal type</label>
-                <div className="mt-1 flex gap-2">
-                  {MEAL_ORDER.map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setForm((f) => (f ? { ...f, meal: t } : f))}
-                      className={`flex-1 py-2 rounded-xl text-xs font-semibold ${form.meal === t ? "bg-emerald-500 text-white" : "bg-gray-100 text-gray-500"}`}
-                    >
-                      {MEAL_LABELS[t]}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              )}
+            </Field>
 
-              <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Items</label>
-                <div className="mt-1 space-y-2">
-                  {form.items.map((it, idx) => (
-                    <div key={idx} className="flex gap-2 items-center">
-                      <input
-                        className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                        placeholder="Food"
-                        value={it.description}
-                        onChange={(e) => updateItem(idx, { description: e.target.value })}
-                      />
-                      <input
-                        type="number"
-                        className="w-20 rounded-xl border border-gray-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                        placeholder="kcal"
-                        value={it.calories}
-                        onChange={(e) => updateItem(idx, { calories: e.target.value })}
-                      />
-                      <input
-                        type="number"
-                        className="w-16 rounded-xl border border-gray-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                        placeholder="g"
-                        value={it.protein}
-                        onChange={(e) => updateItem(idx, { protein: e.target.value })}
-                      />
-                      <button
-                        onClick={() => removeItem(idx)}
-                        className="shrink-0 w-8 h-8 rounded-lg bg-gray-100 text-gray-400 text-sm"
-                        aria-label="Remove item"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <button onClick={addItem} className="mt-2 text-sm text-emerald-600 font-medium">+ Add item</button>
-              </div>
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-ink-body">Meal type</p>
+              <SegmentedControl
+                label="Meal type"
+                value={form.meal}
+                onChange={(meal) => setForm((f) => (f ? { ...f, meal } : f))}
+                options={MEAL_ORDER.map((t) => ({
+                  value: t,
+                  label: MEAL_LABELS[t],
+                }))}
+              />
             </div>
 
-            <div className="flex gap-3 mt-5">
-              <button onClick={() => setForm(null)} className="flex-1 py-3 rounded-2xl border border-gray-200 text-gray-500 font-medium">Cancel</button>
-              <button
-                onClick={save}
-                disabled={saving}
-                className="flex-1 py-3 rounded-2xl bg-emerald-500 text-white font-semibold disabled:opacity-50"
-              >
-                {saving ? "Saving…" : "Save"}
-              </button>
-            </div>
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium text-ink-body">
+                Items
+                {itemsMissing ? (
+                  <span className="ml-2 font-normal text-danger">
+                    Add at least one food.
+                  </span>
+                ) : null}
+              </legend>
+              {form.items.map((it, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <Input
+                    aria-label={`Food ${idx + 1}`}
+                    placeholder="Food"
+                    className="flex-1"
+                    value={it.description}
+                    onChange={(e) =>
+                      updateItem(idx, { description: e.target.value })
+                    }
+                  />
+                  <Input
+                    aria-label={`Calories for food ${idx + 1}`}
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    placeholder="kcal"
+                    className="w-24 px-2 text-center"
+                    value={it.calories}
+                    onChange={(e) => updateItem(idx, { calories: e.target.value })}
+                  />
+                  <Input
+                    aria-label={`Protein grams for food ${idx + 1}`}
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    placeholder="g"
+                    className="w-20 px-2 text-center"
+                    value={it.protein}
+                    onChange={(e) => updateItem(idx, { protein: e.target.value })}
+                  />
+                  <IconButton
+                    icon="close"
+                    label={`Remove food ${idx + 1}`}
+                    size={36}
+                    disabled={form.items.length === 1}
+                    onClick={() => removeItem(idx)}
+                  />
+                </div>
+              ))}
+              <Button variant="ghost" size="sm" onClick={addItem}>
+                <Icon name="plus" size={18} />
+                Add item
+              </Button>
+            </fieldset>
           </div>
-        </>
-      )}
+        ) : null}
+      </Sheet>
+
+      {/* Replaces a native confirm(), which cannot be styled and does not say
+          which meal is about to be deleted. */}
+      <Sheet
+        open={pendingDelete !== null}
+        onClose={() => setPendingDelete(null)}
+        title="Delete this saved meal?"
+        description={pendingDelete?.name}
+        footer={
+          <div className="flex gap-3">
+            <Button
+              variant="secondary"
+              fullWidth
+              onClick={() => setPendingDelete(null)}
+            >
+              Keep it
+            </Button>
+            <Button variant="danger" fullWidth onClick={confirmRemove}>
+              Delete
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-ink-body">
+          This removes the saved meal only. Any food you have already logged from
+          it stays in your history.
+        </p>
+      </Sheet>
     </div>
   );
 }

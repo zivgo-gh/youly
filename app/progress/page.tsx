@@ -17,9 +17,55 @@ import {
 import { loadLogs } from "@/lib/db";
 import { resolveProfile } from "@/lib/resolve-profile";
 import { LoadFailure } from "@/components/shared/LoadFailure";
-import { aggregateLast, computeTrajectory, weeklyStats, generateMilestones } from "@/lib/calories";
+import {
+  aggregateLast,
+  computeTrajectory,
+  weeklyStats,
+  generateMilestones,
+} from "@/lib/calories";
 import type { UserProfile, DailyLogs, Milestone } from "@/lib/types";
 import type { Trajectory } from "@/lib/calories";
+import { CHART, AXIS_TICK, TOOLTIP_STYLE } from "@/lib/chart-theme";
+import { Container } from "@/components/ui/Container";
+import { Card, CardLabel } from "@/components/ui/Card";
+import { Stat } from "@/components/ui/Metric";
+import { Button } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
+import { LoadingScreen, Badge } from "@/components/ui/Feedback";
+
+const STATUS: Record<
+  Trajectory["status"],
+  { label: string; tone: "brand" | "neutral" | "warn" }
+> = {
+  ahead: { label: "Ahead of pace", tone: "brand" },
+  on_track: { label: "On track", tone: "brand" },
+  behind: { label: "Behind pace", tone: "warn" },
+  insufficient_data: { label: "Keep logging", tone: "neutral" },
+};
+
+function ChartFrame({
+  title,
+  summary,
+  children,
+}: {
+  title: string;
+  summary: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card as="section">
+      <CardLabel>{title}</CardLabel>
+      {/* A chart is invisible to a screen reader. This sentence is the
+          equivalent text; full data tables land in the accessibility pass. */}
+      <p className="sr-only">{summary}</p>
+      <div className="mt-4 h-48 w-full sm:h-56">
+        <ResponsiveContainer width="100%" height="100%">
+          {children as React.ReactElement}
+        </ResponsiveContainer>
+      </div>
+    </Card>
+  );
+}
 
 export default function ProgressPage() {
   const router = useRouter();
@@ -53,7 +99,9 @@ export default function ProgressPage() {
       setLogs(allLogs);
       setTrajectory(computeTrajectory(allLogs, p));
       const weeklyLossLbs = (p.dailyDeficit ?? 500) / 500;
-      setMilestones(generateMilestones(p.currentWeightLbs, p.goalWeightLbs, weeklyLossLbs));
+      setMilestones(
+        generateMilestones(p.currentWeightLbs, p.goalWeightLbs, weeklyLossLbs)
+      );
       setLoading(false);
     }
     init();
@@ -63,15 +111,13 @@ export default function ProgressPage() {
   const stats7 = profile && logs ? weeklyStats(logs, 7) : null;
 
   const calChartData = agg30.map((d) => ({
-    date: d.date.slice(5), // MM-DD
+    date: d.date.slice(5),
     calories: d.logged ? d.calories : null,
-    target: profile?.dailyCalorieTarget,
   }));
 
   const proteinChartData = agg30.map((d) => ({
     date: d.date.slice(5),
     protein: d.logged ? d.protein : null,
-    target: profile?.dailyProteinTarget,
   }));
 
   const weightChartData = agg30
@@ -87,320 +133,276 @@ export default function ProgressPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ profile, logs }),
       });
+      if (!res.ok) {
+        setSummary(
+          res.status === 401
+            ? "Your session expired. Please sign in again."
+            : "We couldn't generate a summary just now. Please try again."
+        );
+        return;
+      }
       const data = await res.json();
       setSummary(data.summary ?? "");
     } catch {
-      setSummary("Failed to generate summary. Please try again.");
+      setSummary("We couldn't generate a summary just now. Please try again.");
     } finally {
       setSummaryLoading(false);
     }
   };
 
   if (failed) return <LoadFailure />;
+  if (loading || !profile || !trajectory)
+    return <LoadingScreen label="Loading your progress" />;
 
-  if (loading || !profile || !trajectory) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-400 text-sm">Loading...</div>
-      </div>
-    );
-  }
-
-  const statusColors = {
-    ahead: "text-emerald-600 bg-emerald-50",
-    on_track: "text-blue-600 bg-blue-50",
-    behind: "text-orange-500 bg-orange-50",
-    insufficient_data: "text-gray-500 bg-gray-100",
-  };
-
-  const statusLabels = {
-    ahead: "Ahead of pace",
-    on_track: "On track",
-    behind: "Behind pace",
-    insufficient_data: "Keep logging",
-  };
-
-  const currentWeightLbs = trajectory.currentWeightLbs ?? profile.currentWeightLbs;
+  const currentWeightLbs =
+    trajectory.currentWeightLbs ?? profile.currentWeightLbs;
   const weeklyLossLbs = (profile.dailyDeficit ?? 500) / 500;
+  const status = STATUS[trajectory.status];
 
-  // Find next milestone not yet reached
-  const nextMilestone = milestones.find((m) => m.targetWeightLbs > (trajectory.currentWeightLbs ?? profile.goalWeightLbs + 1));
+  const nextMilestone = milestones.find(
+    (m) =>
+      m.targetWeightLbs >
+      (trajectory.currentWeightLbs ?? profile.goalWeightLbs + 1)
+  );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Nav */}
-      <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center gap-4">
-        <a href="/chat" className="text-emerald-600 hover:underline text-sm">
-          ← Back to chat
-        </a>
-        <span className="text-lg font-black tracking-tight uppercase text-emerald-600">Youly</span>
-        <span className="text-gray-400 text-sm">Progress</span>
-      </header>
+    <div className="bg-surface-sunken py-8 sm:py-12">
+      <Container>
+        <h1 className="text-2xl font-bold tracking-tight text-ink">Progress</h1>
+        <p className="mt-1 text-sm text-ink-muted">
+          Your last 30 days, and where the current pace lands you.
+        </p>
 
-      <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
-        {/* Goal tracker */}
-        <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-4">
-            Goal
-          </h2>
-          <div className="flex flex-wrap gap-6">
-            <div>
-              <p className="text-3xl font-bold text-gray-800">
-                {currentWeightLbs}
-                <span className="text-base font-normal text-gray-400"> lbs</span>
-              </p>
-              <p className="text-xs text-gray-400">Current weight</p>
+        <div className="mt-6 space-y-6">
+          {/* Goal */}
+          <Card as="section">
+            <CardLabel>Goal</CardLabel>
+            <div className="mt-4 flex flex-wrap items-center gap-x-8 gap-y-4">
+              <Stat label="Current weight" value={currentWeightLbs} unit="lbs" />
+              <Icon
+                name="chevron-right"
+                className="hidden text-ink-muted sm:block"
+                size={22}
+              />
+              <Stat
+                label="Goal weight"
+                value={profile.goalWeightLbs}
+                unit="lbs"
+                tone="brand"
+              />
             </div>
-            <div className="text-2xl text-gray-300 self-center">→</div>
-            <div>
-              <p className="text-3xl font-bold text-emerald-600">
-                {profile.goalWeightLbs}
-                <span className="text-base font-normal text-gray-400"> lbs</span>
-              </p>
-              <p className="text-xs text-gray-400">Goal weight</p>
+
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <Badge tone={status.tone}>{status.label}</Badge>
+              {trajectory.estimatedGoalDate ? (
+                <span className="text-sm text-ink-body">
+                  Estimated goal:{" "}
+                  <strong className="font-semibold text-ink">
+                    {new Date(trajectory.estimatedGoalDate).toLocaleDateString(
+                      "en-US",
+                      { month: "long", day: "numeric", year: "numeric" }
+                    )}
+                  </strong>
+                  {trajectory.weeksToGoal
+                    ? ` (${trajectory.weeksToGoal} weeks)`
+                    : null}
+                </span>
+              ) : null}
             </div>
-          </div>
 
-          <div className="mt-4 flex flex-wrap gap-3 items-center">
-            <span
-              className={`inline-block text-xs font-medium px-3 py-1 rounded-full ${
-                statusColors[trajectory.status]
-              }`}
-            >
-              {statusLabels[trajectory.status]}
-            </span>
+            {trajectory.projectedWeeklyLossLbs > 0 ? (
+              <p className="tnum mt-2 text-sm text-ink-muted">
+                Projected loss: {trajectory.projectedWeeklyLossLbs} lbs/week, based
+                on the last 14 days.
+              </p>
+            ) : null}
+          </Card>
 
-            {trajectory.estimatedGoalDate && (
-              <span className="text-sm text-gray-600">
-                Estimated goal:{" "}
-                <strong>
-                  {new Date(trajectory.estimatedGoalDate).toLocaleDateString(
-                    "en-US",
-                    { month: "long", day: "numeric", year: "numeric" }
-                  )}
-                </strong>
-                {trajectory.weeksToGoal &&
-                  ` (${trajectory.weeksToGoal} weeks)`}
-              </span>
-            )}
-          </div>
-
-          {trajectory.projectedWeeklyLossLbs > 0 && (
-            <p className="text-xs text-gray-400 mt-2">
-              Projected loss: {trajectory.projectedWeeklyLossLbs} lbs/week based on last 14 days
-            </p>
-          )}
-        </section>
-
-        {/* Milestones */}
-        <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-4">
-            Your journey — {weeklyLossLbs} lb/week pace
-          </h2>
-          <div className="space-y-2">
-            {milestones.map((m) => {
-              const reached = currentWeightLbs <= m.targetWeightLbs;
-              const isNext = nextMilestone?.label === m.label;
-              return (
-                <div
-                  key={m.label}
-                  className={`flex items-center justify-between py-2 px-3 rounded-xl text-sm ${
-                    reached
-                      ? "bg-emerald-50 text-emerald-700"
-                      : isNext
-                      ? "bg-blue-50 text-blue-700 font-medium"
-                      : "text-gray-500"
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    {reached ? "✓" : isNext ? "→" : "·"} {m.label}
-                  </span>
-                  <span>
-                    {m.targetWeightLbs} lbs{" "}
-                    <span className="text-xs opacity-60">
-                      {new Date(m.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+          {/* Milestones */}
+          <Card as="section">
+            <CardLabel>Your journey — {weeklyLossLbs} lb/week pace</CardLabel>
+            <ul className="mt-4 space-y-1">
+              {milestones.map((m) => {
+                const reached = currentWeightLbs <= m.targetWeightLbs;
+                const isNext = nextMilestone?.label === m.label;
+                return (
+                  <li
+                    key={m.label}
+                    className={
+                      reached
+                        ? "flex items-center justify-between gap-3 rounded-xl bg-brand-50 px-3 py-2 text-sm text-brand-800"
+                        : isNext
+                          ? "flex items-center justify-between gap-3 rounded-xl bg-surface-sunken px-3 py-2 text-sm font-semibold text-ink"
+                          : "flex items-center justify-between gap-3 px-3 py-2 text-sm text-ink-muted"
+                    }
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      {reached ? (
+                        <Icon name="check" size={16} className="text-brand-700" />
+                      ) : isNext ? (
+                        <Icon name="target" size={16} />
+                      ) : (
+                        <span aria-hidden="true" className="w-4" />
+                      )}
+                      <span className="truncate">{m.label}</span>
+                      {/* State in words, not glyph-and-colour alone. */}
+                      <span className="sr-only">
+                        {reached ? "(reached)" : isNext ? "(next up)" : "(upcoming)"}
+                      </span>
                     </span>
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+                    <span className="tnum shrink-0">
+                      {m.targetWeightLbs} lbs{" "}
+                      <span className="text-xs opacity-70">
+                        {new Date(m.date).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
 
-        {/* This week */}
-        {stats7 && (
-          <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-4">
-              This week
-            </h2>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <p className="text-2xl font-bold text-gray-800">
-                  {stats7.avgCalories}
-                </p>
-                <p className="text-xs text-gray-400">
-                  avg kcal/day (target {profile.dailyCalorieTarget})
-                </p>
+          {/* This week */}
+          {stats7 ? (
+            <Card as="section">
+              <CardLabel>This week</CardLabel>
+              <div className="mt-4 grid grid-cols-2 gap-5 sm:grid-cols-3">
+                <Stat
+                  label={`Avg kcal/day · target ${profile.dailyCalorieTarget}`}
+                  value={stats7.avgCalories}
+                />
+                <Stat
+                  label={`Avg protein/day · target ${profile.dailyProteinTarget}g`}
+                  value={`${stats7.avgProtein}g`}
+                />
+                <Stat label="Days logged" value={`${stats7.daysLogged}/7`} />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-blue-600">
-                  {stats7.avgProtein}g
-                </p>
-                <p className="text-xs text-gray-400">
-                  avg protein/day (target {profile.dailyProteinTarget}g)
-                </p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-800">
-                  {stats7.daysLogged}/7
-                </p>
-                <p className="text-xs text-gray-400">days logged</p>
-              </div>
-            </div>
-          </section>
-        )}
+            </Card>
+          ) : null}
 
-        {/* Calorie chart */}
-        <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-4">
-            Calories — last 30 days
-          </h2>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={calChartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 10, fill: "#9ca3af" }}
-                tickLine={false}
-                interval={6}
-              />
-              <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} tickLine={false} />
-              <Tooltip
-                contentStyle={{
-                  fontSize: 12,
-                  border: "none",
-                  borderRadius: 8,
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                }}
-              />
+          <ChartFrame
+            title="Calories — last 30 days"
+            summary={`Daily calories over the last 30 days against a target of ${profile.dailyCalorieTarget} kcal. This week averaged ${stats7?.avgCalories ?? 0} kcal per day.`}
+          >
+            <BarChart
+              data={calChartData}
+              margin={{ top: 4, right: 8, left: -18, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke={CHART.grid} vertical={false} />
+              <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} interval={6} />
+              <YAxis tick={AXIS_TICK} tickLine={false} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} />
               <ReferenceLine
                 y={profile.dailyCalorieTarget}
-                stroke="#10b981"
+                stroke={CHART.goal}
                 strokeDasharray="4 4"
-                label={{ value: "target", position: "right", fontSize: 10, fill: "#10b981" }}
-              />
-              <Bar dataKey="calories" fill="#10b981" radius={[4, 4, 0, 0]} opacity={0.8} />
-            </BarChart>
-          </ResponsiveContainer>
-        </section>
-
-        {/* Protein chart */}
-        <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-4">
-            Protein — last 30 days
-          </h2>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={proteinChartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 10, fill: "#9ca3af" }}
-                tickLine={false}
-                interval={6}
-              />
-              <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} tickLine={false} />
-              <Tooltip
-                contentStyle={{
-                  fontSize: 12,
-                  border: "none",
-                  borderRadius: 8,
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                label={{
+                  value: "target",
+                  position: "right",
+                  fontSize: 11,
+                  fill: CHART.goal,
                 }}
               />
+              <Bar dataKey="calories" fill={CHART.calories} radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ChartFrame>
+
+          <ChartFrame
+            title="Protein — last 30 days"
+            summary={`Daily protein over the last 30 days against a target of ${profile.dailyProteinTarget} grams. This week averaged ${stats7?.avgProtein ?? 0} grams per day.`}
+          >
+            <BarChart
+              data={proteinChartData}
+              margin={{ top: 4, right: 8, left: -18, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke={CHART.grid} vertical={false} />
+              <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} interval={6} />
+              <YAxis tick={AXIS_TICK} tickLine={false} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} />
               <ReferenceLine
                 y={profile.dailyProteinTarget}
-                stroke="#3b82f6"
+                stroke={CHART.protein}
                 strokeDasharray="4 4"
-                label={{ value: "target", position: "right", fontSize: 10, fill: "#3b82f6" }}
+                label={{
+                  value: "target",
+                  position: "right",
+                  fontSize: 11,
+                  fill: CHART.protein,
+                }}
               />
-              <Bar dataKey="protein" fill="#3b82f6" radius={[4, 4, 0, 0]} opacity={0.8} />
+              <Bar dataKey="protein" fill={CHART.protein} radius={[4, 4, 0, 0]} />
             </BarChart>
-          </ResponsiveContainer>
-        </section>
+          </ChartFrame>
 
-        {/* Weight chart */}
-        {weightChartData.length > 1 && (
-          <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-4">
-              Weight trend
-            </h2>
-            <ResponsiveContainer width="100%" height={180}>
-              <LineChart data={weightChartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 10, fill: "#9ca3af" }}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 10, fill: "#9ca3af" }}
-                  tickLine={false}
-                  domain={["auto", "auto"]}
-                />
+          {weightChartData.length > 1 ? (
+            <ChartFrame
+              title="Weight trend"
+              summary={`Weight readings over the last 30 days, currently ${currentWeightLbs} lbs against a goal of ${profile.goalWeightLbs} lbs.`}
+            >
+              <LineChart
+                data={weightChartData}
+                margin={{ top: 4, right: 8, left: -18, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke={CHART.grid} vertical={false} />
+                <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} />
+                <YAxis tick={AXIS_TICK} tickLine={false} domain={["auto", "auto"]} />
                 <Tooltip
-                  contentStyle={{
-                    fontSize: 12,
-                    border: "none",
-                    borderRadius: 8,
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                  }}
+                  contentStyle={TOOLTIP_STYLE}
                   formatter={(v) => [`${v} lbs`, "Weight"]}
                 />
                 <ReferenceLine
                   y={profile.goalWeightLbs}
-                  stroke="#10b981"
+                  stroke={CHART.goal}
                   strokeDasharray="4 4"
-                  label={{ value: "goal", position: "right", fontSize: 10, fill: "#10b981" }}
+                  label={{
+                    value: "goal",
+                    position: "right",
+                    fontSize: 11,
+                    fill: CHART.goal,
+                  }}
                 />
                 <Line
                   type="monotone"
                   dataKey="weight"
-                  stroke="#6366f1"
+                  stroke={CHART.weight}
                   strokeWidth={2}
-                  dot={{ r: 3, fill: "#6366f1" }}
+                  dot={{ r: 3, fill: CHART.weight }}
                 />
               </LineChart>
-            </ResponsiveContainer>
-          </section>
-        )}
+            </ChartFrame>
+          ) : null}
 
-        {/* Weekly summary */}
-        <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-400">
-              Weekly summary
-            </h2>
-            <button
-              onClick={generateSummary}
-              disabled={summaryLoading}
-              className="text-xs text-emerald-600 hover:underline disabled:opacity-50"
-            >
-              {summaryLoading ? "Generating..." : "Generate"}
-            </button>
-          </div>
-          {summary ? (
-            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
-              {summary}
-            </p>
-          ) : (
-            <p className="text-sm text-gray-400">
-              Click &quot;Generate&quot; for an AI-written summary of your week.
-            </p>
-          )}
-        </section>
-
-        <div className="pb-4" />
-      </div>
+          {/* Weekly summary */}
+          <Card as="section">
+            <div className="flex items-center justify-between gap-3">
+              <CardLabel>Weekly summary</CardLabel>
+              <Button
+                variant="ghost"
+                size="sm"
+                loading={summaryLoading}
+                onClick={generateSummary}
+              >
+                {summary ? "Regenerate" : "Generate"}
+              </Button>
+            </div>
+            <div aria-live="polite" className="mt-3">
+              {summary ? (
+                <p className="text-sm leading-relaxed whitespace-pre-wrap text-ink-body">
+                  {summary}
+                </p>
+              ) : (
+                <p className="text-sm text-ink-muted">
+                  Generate an AI-written recap of your week — what went well, and
+                  one thing to focus on next.
+                </p>
+              )}
+            </div>
+          </Card>
+        </div>
+      </Container>
     </div>
   );
 }

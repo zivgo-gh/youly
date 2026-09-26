@@ -1,65 +1,127 @@
 "use client";
 
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { FunnelShell } from "@/components/layout/FunnelShell";
+import { Button } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
 
+/**
+ * `useSearchParams` client-renders the tree up to the nearest Suspense boundary
+ * on a prerendered route, so the ?next= reader has to sit inside one.
+ */
 export default function LoginPage() {
-  const supabase = createSupabaseBrowserClient();
-
-  const signInWithGoogle = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-  };
-
   return (
-    <div className="h-screen flex flex-col bg-emerald-700 overflow-hidden">
-      {/* Green header */}
-      <div className="px-6 pt-14 pb-5 shrink-0">
-        <p className="text-4xl font-black tracking-tight text-emerald-300 uppercase mb-3">Youly</p>
-        <h1 className="text-[1.6rem] font-bold leading-snug text-white">
-          Sign in to meet<br />your coach.
-        </h1>
-        <p className="text-emerald-200 text-sm mt-2">Takes less than a minute.</p>
-      </div>
-
-      {/* White card */}
-      <div className="flex-1 bg-white rounded-t-3xl flex flex-col overflow-hidden">
-        <div className="flex-1 flex flex-col justify-center px-6">
-          {/* Privacy badge */}
-          <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-100 rounded-2xl px-4 py-3 mb-8">
-            <span className="text-emerald-600 text-xl mt-0.5">🔒</span>
-            <div>
-              <p className="text-sm font-semibold text-emerald-800">
-                Your health data stays on your device
-              </p>
-              <p className="text-xs text-emerald-600 mt-0.5">
-                We never sell or share your personal information.
-              </p>
-            </div>
-          </div>
-
-          <p className="text-center text-gray-500 text-sm mb-5">Sign in to continue</p>
-
-          {/* Google button */}
-          <button
-            onClick={signInWithGoogle}
-            className="w-full flex items-center justify-center gap-3 py-3.5 px-4 rounded-2xl border border-gray-200 bg-white text-gray-700 font-semibold text-sm active:bg-gray-50 transition-colors shadow-sm"
-          >
-            <GoogleIcon />
-            Continue with Google
-          </button>
-        </div>
-      </div>
-    </div>
+    <Suspense fallback={<LoginForm />}>
+      <LoginForm />
+    </Suspense>
   );
 }
 
-function GoogleIcon() {
+function LoginForm() {
+  const params = useSearchParams();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Surfaced by /auth/callback when the provider hands back an error instead of
+  // a code, so a cancelled or failed sign-in explains itself.
+  const callbackError = params?.get("error");
+  const message =
+    error ??
+    (callbackError
+      ? "Sign-in didn't complete. Please try again."
+      : null);
+
+  // Only ever honour an internal app path — an open redirect here would let a
+  // crafted link bounce a freshly-authenticated user to another origin.
+  const raw = params?.get("next") ?? "";
+  const next = raw.startsWith("/app") ? raw : "";
+
+  async function signInWithGoogle() {
+    setPending(true);
+    setError(null);
+    const supabase = createSupabaseBrowserClient();
+    const callback = new URL("/auth/callback", window.location.origin);
+    if (next) callback.searchParams.set("next", next);
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: callback.toString() },
+    });
+
+    if (error) {
+      setPending(false);
+      setError("We couldn't start sign-in. Please try again.");
+    }
+  }
+
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <FunnelShell
+      title={
+        <>
+          Sign in to meet
+          <br />
+          your coach.
+        </>
+      }
+      subtitle="It takes less than a minute."
+      footer={
+        <p className="text-center text-xs leading-relaxed text-ink-muted">
+          By continuing you agree to our{" "}
+          <a href="/terms" className="font-medium text-brand-700 underline">
+            Terms of Use
+          </a>{" "}
+          and{" "}
+          <a href="/privacy" className="font-medium text-brand-700 underline">
+            Privacy Policy
+          </a>
+          .
+        </p>
+      }
+    >
+      {/* The badge that used to sit here claimed "Your health data stays on your
+          device", which stopped being true when the app moved to Postgres. */}
+      <div className="flex items-start gap-3 rounded-2xl bg-brand-50 px-4 py-3">
+        <span className="mt-0.5 text-brand-700">
+          <Icon name="lock" />
+        </span>
+        <div>
+          <p className="text-sm font-semibold text-brand-800">
+            Your data is yours alone
+          </p>
+          <p className="mt-0.5 text-sm text-ink-muted">
+            Encrypted in transit, readable only by your account, and never sold or
+            shared.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-8">
+        <Button
+          variant="secondary"
+          size="lg"
+          fullWidth
+          loading={pending}
+          onClick={signInWithGoogle}
+        >
+          {!pending ? <GoogleMark /> : null}
+          Continue with Google
+        </Button>
+
+        {message ? (
+          <p role="alert" className="mt-3 text-center text-sm font-medium text-danger">
+            {message}
+          </p>
+        ) : null}
+      </div>
+    </FunnelShell>
+  );
+}
+
+function GoogleMark() {
+  return (
+    <svg aria-hidden="true" focusable="false" width="20" height="20" viewBox="0 0 24 24">
       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
       <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
       <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
