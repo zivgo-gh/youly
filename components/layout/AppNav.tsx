@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 import { Icon } from "@/components/ui/Icon";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { NAV_ITEMS } from "./nav-items";
+import { AccountMenuTrigger } from "@/components/app/AccountMenu";
 
 /**
  * Persistent in-app navigation — bottom tabs on mobile, sidebar from lg up.
@@ -62,7 +63,7 @@ export function AppTabBar() {
       aria-label="Main"
       className="shrink-0 border-t border-border-subtle bg-surface pb-safe lg:hidden"
     >
-      <ul className="flex">
+      <ul className="flex items-stretch">
         {NAV_ITEMS.map((item) => {
           const active = isActive(pathname, item.href);
           return (
@@ -70,11 +71,12 @@ export function AppTabBar() {
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
+                // Icon-only by request, to give the conversation more room. The
+                // label still exists for assistive tech via sr-only, so the tab
+                // is announced even though it isn't drawn.
                 className={cn(
-                  "flex min-h-14 flex-col items-center justify-center gap-1 pt-1.5 pb-1 text-[11px] transition-colors",
-                  active
-                    ? "font-bold text-brand-700"
-                    : "font-medium text-ink-muted"
+                  "flex min-h-12 flex-col items-center justify-center transition-colors",
+                  active ? "text-brand-700" : "text-ink-muted"
                 )}
               >
                 <span
@@ -83,14 +85,18 @@ export function AppTabBar() {
                     active && "bg-brand-100"
                   )}
                 >
-                  <Icon name={item.icon} size={21} />
+                  <Icon name={item.icon} size={22} />
                 </span>
-                {/* Label always shown — icon-only tabs hurt discoverability. */}
-                {item.label}
+                <span className="sr-only">{item.label}</span>
               </Link>
             </li>
           );
         })}
+        {/* Account lives in the tray rather than the chat header, so the
+            conversation keeps that row. */}
+        <li className="flex-1">
+          <AccountMenuTrigger variant="tab" />
+        </li>
       </ul>
     </nav>
   );

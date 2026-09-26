@@ -5,8 +5,14 @@ import { AppMobileHeader } from "./AppMobileHeader";
  * The gated app's frame: sidebar from lg up, mobile header plus bottom tab bar
  * below it.
  *
- * Uses h-dvh rather than h-screen. h-screen is 100vh, which on iOS Safari sits
- * partly behind the address bar — exactly the bug the pinned chat composer had.
+ * `fixed inset-0` rather than `h-dvh`. h-dvh tracks the viewport, but iOS Safari
+ * grows the viewport when the toolbar retracts, so the shell became taller than
+ * the document's 100% and the whole page scrolled — leaving a dead band of canvas
+ * below the tab bar that you could scroll into. Taking the shell out of flow pins
+ * it to the viewport exactly, so the document has nothing to scroll.
+ *
+ * `overscroll-none` additionally stops the rubber-band at the edges. Each screen
+ * still scrolls its own content; only the document is locked.
  */
 export function AppShell({
   children,
@@ -16,7 +22,7 @@ export function AppShell({
   sidebarFooter?: React.ReactNode;
 }) {
   return (
-    <div className="flex h-dvh overflow-hidden bg-canvas">
+    <div className="fixed inset-0 flex overflow-hidden overscroll-none bg-canvas">
       <AppSidebar footer={sidebarFooter} />
 
       <div className="flex min-w-0 flex-1 flex-col">

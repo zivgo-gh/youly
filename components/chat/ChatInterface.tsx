@@ -23,7 +23,6 @@ import { IconButton } from "@/components/ui/IconButton";
 import { Icon } from "@/components/ui/Icon";
 import { ProgressBar } from "@/components/ui/Metric";
 import { TypingDots } from "@/components/ui/Feedback";
-import { AccountMenuTrigger } from "@/components/app/AccountMenu";
 
 const MEAL_ORDER: MealType[] = ["breakfast", "lunch", "dinner", "snack"];
 const MEAL_LABELS: Record<MealType, string> = {
@@ -326,137 +325,75 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {/* Day navigation + macro strip. Hidden at xl, where the rail covers it. */}
-        <div className="shrink-0 border-b border-border-subtle bg-surface px-4 pb-2.5 pt-2 pt-safe xl:hidden">
-          <div className="relative mx-auto flex max-w-3xl items-center justify-center gap-1">
-            <IconButton
-              icon="chevron-left"
-              label="Previous day"
-              size={32}
-              disabled={!prevDate}
-              onClick={() => prevDate && setViewDate(prevDate)}
-            />
-            <div className="flex items-center gap-2">
+        {/* Phone header. Three bands with their own backgrounds so the date,
+            the macros and the log toggle read as separate things rather than one
+            undifferentiated block. Hidden at xl, where the rail covers it. */}
+        <div className="shrink-0 xl:hidden">
+          <div className="border-b border-border-subtle bg-surface-sunken px-4 pt-safe">
+            <div className="relative mx-auto flex max-w-3xl items-center justify-center gap-1 py-1">
+              <IconButton
+                icon="chevron-left"
+                label="Previous day"
+                size={32}
+                disabled={!prevDate}
+                onClick={() => prevDate && setViewDate(prevDate)}
+              />
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted">
                 {isViewingToday
                   ? `${formatNavDate(viewDate)} — Today`
                   : formatNavDate(viewDate)}
               </p>
+              <IconButton
+                icon="chevron-right"
+                label="Next day"
+                size={32}
+                disabled={!nextDate}
+                onClick={() => nextDate && setViewDate(nextDate)}
+              />
               {!isViewingToday ? (
                 <button
                   type="button"
                   onClick={() => setViewDate(todayStr())}
-                  className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-800"
+                  className="absolute right-0 rounded-full bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-800"
                 >
                   Today
                 </button>
               ) : null}
             </div>
-            <IconButton
-              icon="chevron-right"
-              label="Next day"
-              size={32}
-              disabled={!nextDate}
-              onClick={() => nextDate && setViewDate(nextDate)}
-            />
-            {/* Absolutely positioned so it doesn't shift the date off centre.
-                Hidden from lg up, where the sidebar's footer already carries the
-                account button and this strip is still visible until xl. */}
-            <div className="absolute right-0 lg:hidden">
-              <AccountMenuTrigger compact />
-            </div>
           </div>
 
-          <div className="mx-auto mt-1 grid max-w-3xl grid-cols-2 gap-x-5 gap-y-3">
-            <ProgressBar
-              compact
-              label="Calories"
-              value={viewedLog.totalCalories}
-              target={profile.dailyCalorieTarget}
-              unit="kcal"
-              series="calories"
-            />
-            <ProgressBar
-              compact
-              label="Protein"
-              value={viewedLog.totalProtein}
-              target={profile.dailyProteinTarget}
-              unit="g"
-              series="protein"
-            />
+          <div className="border-b border-border-subtle bg-surface px-4 py-2.5">
+            <div className="mx-auto grid max-w-3xl grid-cols-2 gap-x-5">
+              <ProgressBar
+                compact
+                label="Calories"
+                value={viewedLog.totalCalories}
+                target={profile.dailyCalorieTarget}
+                unit="kcal"
+                series="calories"
+              />
+              <ProgressBar
+                compact
+                label="Protein"
+                value={viewedLog.totalProtein}
+                target={profile.dailyProteinTarget}
+                unit="g"
+                series="protein"
+              />
+            </div>
           </div>
 
           {viewedLog.entries.length > 0 ? (
-            <div className="mx-auto mt-2 max-w-3xl border-t border-border-subtle pt-1">
-              <button
-                type="button"
-                onClick={() => setShowFoodLog((v) => !v)}
-                aria-expanded={showFoodLog}
-                aria-controls="food-log-panel"
-                className="flex min-h-8 w-full items-center justify-center gap-1.5 text-[13px] font-semibold text-ink-muted transition-colors hover:text-ink"
-              >
-                <Icon name={showFoodLog ? "chevron-up" : "chevron-down"} size={16} />
+            <button
+              type="button"
+              onClick={() => setShowFoodLog(true)}
+              className="flex w-full items-center justify-center gap-1.5 border-b border-border-subtle bg-surface-sunken py-1.5 text-[13px] font-semibold leading-none text-ink-muted transition-colors hover:text-ink"
+            >
+              <Icon name="chevron-up" size={15} />
+              <span className="leading-none">
                 {`${viewedLog.entries.length} item${viewedLog.entries.length === 1 ? "" : "s"} logged`}
-              </button>
-
-              {showFoodLog ? (
-                <div
-                  id="food-log-panel"
-                  className="mt-2 max-h-[34dvh] space-y-4 overflow-y-auto border-t border-border-subtle pt-3"
-                >
-                  {MEAL_ORDER.filter((m) => entriesByMeal[m]?.length).map((meal) => (
-                    <div key={meal}>
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted">
-                          {MEAL_LABELS[meal]}
-                        </p>
-                        <p className="tnum text-xs text-ink-muted">
-                          {entriesByMeal[meal]!.reduce((s, e) => s + e.estimatedCalories, 0)} kcal
-                        </p>
-                      </div>
-                      <ul>
-                        {entriesByMeal[meal]!.map((entry) => (
-                          <li
-                            key={entry.id}
-                            className="flex items-start justify-between gap-2 border-b border-border-subtle py-2 last:border-0"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm leading-snug text-ink-body">
-                                {entry.description}
-                              </p>
-                              <p className="tnum text-xs text-ink-muted">
-                                {entry.estimatedCalories} kcal · {entry.estimatedProtein}g protein
-                              </p>
-                            </div>
-                            {isEditable ? (
-                              <div className="flex shrink-0 gap-1">
-                                <IconButton
-                                  icon="pencil"
-                                  label={`Edit ${entry.description}`}
-                                  tone="brand"
-                                  size={36}
-                                  onClick={() => openEdit(entry)}
-                                />
-                                <IconButton
-                                  icon="trash"
-                                  label={`Delete ${entry.description}`}
-                                  tone="danger"
-                                  size={36}
-                                  onClick={async () => {
-                                    if (uid) await deleteFoodEntryDb(uid, viewDate, entry.id);
-                                    await refreshLog();
-                                  }}
-                                />
-                              </div>
-                            ) : null}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
+              </span>
+            </button>
           ) : null}
         </div>
 
@@ -476,7 +413,7 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
         ) : null}
 
         {/* Messages — the only scrolling region on this screen. */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:py-6">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:py-6">
           <div className="mx-auto max-w-3xl space-y-5">
             {displayMessages.length === 0 && !streamingText ? (
               <div className="mt-12 flex flex-col items-center gap-3 px-6 text-center">
@@ -550,6 +487,72 @@ export function ChatInterface({ profile, initialMessages, uid }: Props) {
           </div>
         ) : null}
       </div>
+
+      {/* Today's log. This was an inline panel capped at 34dvh, which silently
+          hid entries past the third — it reported "8 items logged" and showed
+          three. A sheet has room for the whole day. */}
+      <Sheet
+        open={showFoodLog}
+        onClose={() => setShowFoodLog(false)}
+        title={isViewingToday ? "Logged today" : `Logged ${formatNavDate(viewDate)}`}
+        description={`${viewedLog.totalCalories.toLocaleString()} kcal · ${viewedLog.totalProtein}g protein`}
+      >
+        <div className="space-y-5">
+          {MEAL_ORDER.filter((m) => entriesByMeal[m]?.length).map((meal) => (
+            <div key={meal}>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted">
+                  {MEAL_LABELS[meal]}
+                </p>
+                <p className="tnum text-xs text-ink-muted">
+                  {entriesByMeal[meal]!.reduce((s, e) => s + e.estimatedCalories, 0)} kcal
+                </p>
+              </div>
+              <ul className="mt-1">
+                {entriesByMeal[meal]!.map((entry) => (
+                  <li
+                    key={entry.id}
+                    className="flex items-start justify-between gap-2 border-b border-border-subtle py-2 last:border-0"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm leading-snug text-ink-body">
+                        {entry.description}
+                      </p>
+                      <p className="tnum text-xs text-ink-muted">
+                        {entry.estimatedCalories} kcal · {entry.estimatedProtein}g protein
+                      </p>
+                    </div>
+                    {isEditable ? (
+                      <div className="flex shrink-0 gap-1">
+                        <IconButton
+                          icon="pencil"
+                          label={`Edit ${entry.description}`}
+                          tone="brand"
+                          size={36}
+                          onClick={() => {
+                            setShowFoodLog(false);
+                            openEdit(entry);
+                          }}
+                        />
+                        <IconButton
+                          icon="trash"
+                          label={`Delete ${entry.description}`}
+                          tone="danger"
+                          size={36}
+                          onClick={async () => {
+                            if (uid) await deleteFoodEntryDb(uid, viewDate, entry.id);
+                            await refreshLog();
+                          }}
+                        />
+                      </div>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </Sheet>
 
       {showTour ? (
         <FirstRunTour

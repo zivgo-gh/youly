@@ -39,7 +39,14 @@ function useAccount() {
   return { email, name };
 }
 
-export function AccountMenuTrigger({ compact = false }: { compact?: boolean }) {
+export function AccountMenuTrigger({
+  compact = false,
+  variant = "default",
+}: {
+  compact?: boolean;
+  /** "tab" renders it to match AppTabBar's cells so it can sit in the tray. */
+  variant?: "default" | "tab";
+}) {
   const [open, setOpen] = useState(false);
   const { email, name } = useAccount();
   const initial = name.charAt(0).toUpperCase() || "?";
@@ -52,7 +59,20 @@ export function AccountMenuTrigger({ compact = false }: { compact?: boolean }) {
 
   return (
     <>
-      {compact ? (
+      {variant === "tab" ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="Account menu"
+          className="flex min-h-12 w-full flex-col items-center justify-center text-ink-muted transition-colors"
+        >
+          <span className="flex h-7 w-16 items-center justify-center rounded-full">
+            <span className="flex size-6 items-center justify-center rounded-full bg-brand-600 text-[11px] font-bold text-white">
+              {initial}
+            </span>
+          </span>
+        </button>
+      ) : compact ? (
         <button
           type="button"
           onClick={() => setOpen(true)}
