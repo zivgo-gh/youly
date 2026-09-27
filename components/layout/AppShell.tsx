@@ -1,4 +1,5 @@
 import { AppSidebar, AppTabBar } from "./AppNav";
+import { LayoutDebug } from "@/components/app/LayoutDebug";
 
 /**
  * The gated app's frame: sidebar from lg up, mobile header plus bottom tab bar
@@ -32,6 +33,8 @@ export function AppShell({
 }) {
   return (
     <div className="flex h-dvh overflow-hidden bg-canvas">
+      {/* Renders nothing unless ?debug=1 is in the URL. */}
+      <LayoutDebug />
       <AppSidebar footer={sidebarFooter} />
 
       <div className="flex min-w-0 flex-1 flex-col">
