@@ -5,9 +5,21 @@ import { AppMobileHeader } from "./AppMobileHeader";
  * The gated app's frame: sidebar from lg up, mobile header plus bottom tab bar
  * below it.
  *
- * Uses h-dvh. Several attempts to also stop the document scrolling past this
- * shell — `fixed inset-0`, then 100svh, then a body overflow lock, then
- * `shrink-0` — each broke the layout worse than the scroll band they targeted.
+ * Uses h-dvh. DO NOT try to stop the document scrolling past this shell without
+ * a real device to test on. Five attempts, all shipped to production, all broke
+ * the chat screen and all had to be reverted:
+ *
+ *   1. `fixed inset-0`        — out of flow, lost its resolved height
+ *   2. body overflow lock (JS) — froze the user at a restored scroll offset
+ *   3. `100svh`               — no effect on the real cause
+ *   4. `shrink-0`             — no effect on the real cause
+ *   5. `html:has([data-app-shell])` document lock in CSS — broke it too
+ *
+ * The dead band of canvas below the tab bar is COSMETIC. A chat screen that
+ * doesn't render is not. The symptom is also not reproducible from the markup:
+ * it needs Chrome DevTools attached to a phone, comparing this element's
+ * computed height against window.innerHeight and document.body.scrollHeight.
+ * Get those three numbers before changing anything here.
  * Reverted to the version that renders correctly. The dead scroll band below the
  * tab bar is a known, cosmetic annoyance; do not attempt it again without a real
  * device to test on, because it is not reproducible from the markup alone.
