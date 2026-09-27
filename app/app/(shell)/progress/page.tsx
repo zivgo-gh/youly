@@ -200,8 +200,8 @@ export default function ProgressPage() {
   );
 
   return (
-    <div className="flex-1 overflow-y-auto overscroll-contain bg-canvas py-8 pb-16 sm:py-12">
-      <Container>
+    <div className="flex-1 overflow-y-auto overscroll-contain bg-canvas px-0 pt-safe pb-16 sm:py-12">
+      <Container className="pt-6 sm:pt-0">
         <h1 className="text-2xl font-bold tracking-tight text-ink">Progress</h1>
         <p className="mt-1 text-sm text-ink-muted">
           Your last 30 days, and where the current pace lands you.

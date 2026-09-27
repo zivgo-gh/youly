@@ -1,5 +1,4 @@
 import { AppSidebar, AppTabBar } from "./AppNav";
-import { AppMobileHeader } from "./AppMobileHeader";
 
 /**
  * The gated app's frame: sidebar from lg up, mobile header plus bottom tab bar
@@ -36,9 +35,6 @@ export function AppShell({
       <AppSidebar footer={sidebarFooter} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Hidden entirely on /app/chat, which folds the account button into its
-            own date row to give the conversation another ~50px. */}
-        <AppMobileHeader />
 
         {/* Does not scroll itself — chat pins a composer and scrolls only its
             message list, so each screen opts into scrolling explicitly. */}
