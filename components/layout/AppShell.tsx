@@ -8,10 +8,9 @@ import { AppMobileHeader } from "./AppMobileHeader";
  * Uses h-dvh. Several attempts to also stop the document scrolling past this
  * shell — `fixed inset-0`, then 100svh, then a body overflow lock, then
  * `shrink-0` — each broke the layout worse than the scroll band they targeted.
- * The dead scroll band is handled in globals.css instead, via a :has() rule that
- * locks html/body when [data-app-shell] is present. The shell keeps h-dvh so it
- * still works if :has() is unsupported; max-h-full stops it exceeding the locked
- * body and clipping the tab bar. Do NOT move that fix back onto this element.
+ * Reverted to the version that renders correctly. The dead scroll band below the
+ * tab bar is a known, cosmetic annoyance; do not attempt it again without a real
+ * device to test on, because it is not reproducible from the markup alone.
  */
 export function AppShell({
   children,
@@ -21,7 +20,7 @@ export function AppShell({
   sidebarFooter?: React.ReactNode;
 }) {
   return (
-    <div data-app-shell className="flex h-dvh max-h-full overflow-hidden bg-canvas">
+    <div className="flex h-dvh overflow-hidden bg-canvas">
       <AppSidebar footer={sidebarFooter} />
 
       <div className="flex min-w-0 flex-1 flex-col">
