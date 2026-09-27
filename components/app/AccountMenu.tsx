@@ -7,6 +7,7 @@ import { getProfile } from "@/lib/storage";
 import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
+import { BUILD, formatBuildTime } from "@/lib/build-info";
 
 /**
  * Account menu, shared by the sidebar and the mobile header.
@@ -48,6 +49,8 @@ export function AccountMenuTrigger({
   variant?: "default" | "tab";
 }) {
   const [open, setOpen] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
+  const [copied, setCopied] = useState(false);
   const { email, name } = useAccount();
   const initial = name.charAt(0).toUpperCase() || "?";
 
@@ -138,7 +141,58 @@ export function AccountMenuTrigger({
               Terms of use
             </Link>
           </li>
+          <li>
+            <button
+              type="button"
+              onClick={() => setShowAbout((v) => !v)}
+              aria-expanded={showAbout}
+              aria-controls="about-panel"
+              className="flex min-h-11 w-full items-center gap-3 rounded-2xl px-3 text-sm font-medium text-ink-body transition-colors hover:bg-surface-sunken"
+            >
+              <Icon name={showAbout ? "chevron-up" : "sparkles"} />
+              About
+            </button>
+          </li>
         </ul>
+
+        {/* Which build is running. This exists because a stale browser cache once
+            made a day of fixes look like they did nothing — there was no way to
+            tell whether the browser had the build that was just deployed. */}
+        {showAbout ? (
+          <dl
+            id="about-panel"
+            className="mt-3 space-y-2 rounded-2xl bg-surface-sunken px-4 py-3 text-sm"
+          >
+            <div className="flex items-baseline justify-between gap-3">
+              <dt className="text-ink-muted">Build</dt>
+              <dd>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(BUILD.sha || BUILD.shortSha);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 1500);
+                    } catch {
+                      // Clipboard can be blocked; the value is on screen regardless.
+                    }
+                  }}
+                  className="tnum font-semibold text-brand-700 underline underline-offset-2"
+                >
+                  {copied ? "copied" : BUILD.shortSha}
+                </button>
+              </dd>
+            </div>
+            <div className="flex items-baseline justify-between gap-3">
+              <dt className="text-ink-muted">Deployed</dt>
+              <dd className="tnum text-ink-body">{formatBuildTime(BUILD.time)}</dd>
+            </div>
+            <div className="flex items-baseline justify-between gap-3">
+              <dt className="text-ink-muted">Environment</dt>
+              <dd className="text-ink-body">{BUILD.env}</dd>
+            </div>
+          </dl>
+        ) : null}
         <p className="mt-5 text-xs leading-relaxed text-ink-muted">
           To delete your account and everything in it, email support and we will
           erase it from our database.
