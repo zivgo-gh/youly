@@ -116,6 +116,27 @@
   --duration-slow: 300ms;
 }
 
+/* The gated app occupies exactly one viewport and manages its own scrolling, so
+   the DOCUMENT must not scroll. Without this, <body> grows past the shell and
+   leaves a dead band of canvas below the tab bar that you can scroll into.
+
+   Scoped via :has() to the app shell, because the marketing pages DO need to
+   scroll normally. Deliberately targets html/body only — every attempt to fix
+   this by resizing the shell itself (fixed inset-0, 100svh, shrink-0) collapsed
+   the layout instead, because the shell's height is load-bearing for the flex
+   column inside it. Leave the shell alone. */
+html:has([data-app-shell]) {
+  height: 100%;
+  overflow: hidden;
+}
+
+html:has([data-app-shell]) body {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 body {
   /* The warm ground is the default, so a page only sets a background when it
      wants to depart from it. */
