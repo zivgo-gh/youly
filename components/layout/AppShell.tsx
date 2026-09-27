@@ -1,35 +1,16 @@
 import { AppSidebar, AppTabBar } from "./AppNav";
 import { AppMobileHeader } from "./AppMobileHeader";
-import { ViewportLock } from "./ViewportLock";
 
 /**
  * The gated app's frame: sidebar from lg up, mobile header plus bottom tab bar
  * below it.
  *
- * Height is 100svh — the SMALL viewport, i.e. the height with the browser
- * toolbars expanded.
- *
- * This is the whole fix for the dead scroll band. `html` is `height: 100%`,
- * which resolves against the layout viewport, but `100dvh` GROWS past that when
- * iOS Safari retracts its toolbars. The shell then became taller than the
- * document and the page itself scrolled — so the header and messages slid off
- * the top and you were left staring at the composer, the tab bar and a slab of
- * empty canvas, which looks exactly like the chat screen disappearing.
- *
- * `svh` is by definition never larger than the layout viewport, so the shell can
- * never overflow the document and there is nothing to scroll. <ViewportLock />
- * belts-and-braces it by locking overflow while a gated screen is mounted.
- *
- * `shrink-0` is load-bearing, not decoration. <body> is `flex flex-col`, so this
- * div is a FLEX ITEM with the default flex-shrink: 1. Once <ViewportLock/> set
- * overflow:hidden on body, body gained a definite height and this item was free
- * to shrink below its 100svh — collapsing to its content: a ~40px header band,
- * `main` flexed to zero, then the composer and tab bar. Which looks precisely
- * like the chat screen vanishing, and cost several wrong diagnoses.
- *
- * Do NOT "fix" that by making the shell `fixed inset-0` either — that was tried,
- * and out of flow it loses its resolved height, so `main` (flex-1 min-h-0)
- * flexes to zero and the layout genuinely does collapse.
+ * Uses h-dvh. Several attempts to also stop the document scrolling past this
+ * shell — `fixed inset-0`, then 100svh, then a body overflow lock, then
+ * `shrink-0` — each broke the layout worse than the scroll band they targeted.
+ * Reverted to the version that renders correctly. The dead scroll band below the
+ * tab bar is a known, cosmetic annoyance; do not attempt it again without a real
+ * device to test on, because it is not reproducible from the markup alone.
  */
 export function AppShell({
   children,
@@ -39,8 +20,7 @@ export function AppShell({
   sidebarFooter?: React.ReactNode;
 }) {
   return (
-    <div className="flex h-[100svh] shrink-0 overflow-hidden bg-canvas">
-      <ViewportLock />
+    <div className="flex h-dvh overflow-hidden bg-canvas">
       <AppSidebar footer={sidebarFooter} />
 
       <div className="flex min-w-0 flex-1 flex-col">
